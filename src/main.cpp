@@ -12,24 +12,31 @@
 
 #include <SDL2/SDL.h>
 #include <SDL2/SDL_ttf.h>
+#include <SDL2/SDL2_gfxPrimitives.h>
 #include <fontconfig/fontconfig.h>
 
 #include <nanoflann.hpp>
 
 #define USE_KDTREE 0
 
-using Numeric = double;
+using Numeric = float;
 
-constexpr uint SCREEN_WIDTH = 800;
-constexpr uint SCREEN_HEIGHT = 800;
+constexpr uint SCREEN_WIDTH = 1850;
+constexpr uint SCREEN_HEIGHT = 1850;
+constexpr uint NUMBOIDS = 6000;
 
-constexpr uint NUMBOIDS = 5000;
-constexpr Numeric MUTATION = 0.0001f;
-constexpr Numeric NEURAL_THRESHOLD = 0.12f; // only for update_Threshold strategy
+constexpr Numeric MUTATION = 0.005;
+constexpr Numeric NEURAL_THRESHOLD = 0.12; // only for update_Threshold strategy
+constexpr size_t NUM_MEMORY_PER_LAYER = 3;
+constexpr size_t NUM_MEMORY_LAYERS = 3;
+
+constexpr Numeric MIN_SIZE = 2.0;
+constexpr Numeric MAX_SIZE = 18.0;
+constexpr Numeric MAX_VELOCITY = 75;
+
 constexpr size_t MAX_GENS = 12000;
-constexpr size_t GEN_ITERS = 400;
-constexpr Numeric MAX_VELOCITY = 6.0;
-constexpr size_t NUM_MEMORY = 10;
+constexpr size_t GEN_ITERS = 250;
+constexpr size_t REALTIME_EVERY_NGENS = 25;
 
 size_t NUM_SURVIVORS = 0;
 
@@ -85,10 +92,19 @@ public:
     Agent() { }
 
     Agent(Agent::SP other) {
+        size(other->size());
         position(other->position());
         colour(other->colour());
         velocity_x(other->velocity_x());
         velocity_y(other->velocity_y());
+    }
+
+    Numeric& size() {
+        return m_size;
+    }
+
+    void size(Numeric next) {
+        m_size = std::max(MIN_SIZE, std::min(MAX_SIZE, next));
     }
 
     Position& position() {
@@ -147,6 +163,7 @@ public:
     }
 
 private:
+    Numeric m_size;
     Position m_pos;
     Colour m_col;
 
@@ -224,10 +241,17 @@ bool LiveStrategy_CentreTenthBox(Agent::SP a) {
     return validX && validY;
 }
 
-bool LiveStrategy_OffCentreTenthBox(Agent::SP a) {
+bool LiveStrategy_OffCentreTenthBox1(Agent::SP a) {
     const auto &p = a->position();
     const bool validX = (p.x > (SCREEN_WIDTH * 3.5f/10.)) && (p.x < (SCREEN_WIDTH * 4.5f/10.));
     const bool validY = (p.y > (SCREEN_HEIGHT * 6.5f/10.)) && (p.y < (SCREEN_HEIGHT * 7.5/10.));
+    return validX && validY;
+}
+
+bool LiveStrategy_OffCentreTenthBox2(Agent::SP a) {
+    const auto &p = a->position();
+    const bool validX = (p.x > (SCREEN_WIDTH * 6.5f/10.)) && (p.x < (SCREEN_WIDTH * 7.5f/10.));
+    const bool validY = (p.y > (SCREEN_HEIGHT * 3.5f/10.)) && (p.y < (SCREEN_HEIGHT * 4.5/10.));
     return validX && validY;
 }
 
@@ -267,7 +291,7 @@ bool LiveStrategy_TLTenth(Agent::SP a) {
 bool LiveStrategy_LowVelocity(Agent::SP a) {
     const auto vx = a->velocity_x();
     const auto vy = a->velocity_y();
-    return std::sqrt(vx*vx + vy*vy) < 0.5;
+    return std::sqrt(vx*vx + vy*vy) < 2.0;
 }
 
 bool LiveStrategy_TLCircle(Agent::SP a) {
@@ -327,8 +351,49 @@ bool LiveStrategy_InBounds(Agent::SP a) {
     return p.x > 0 && p.x < SCREEN_WIDTH && p.y > 0 && p.y < SCREEN_HEIGHT;
 }
 
+bool LiveStrategy_IsRed(Agent::SP a) {
+    const auto &c = a->colour();
+    return (c.r / 4.0) > c.g & (c.r / 4.0) > c.b;
+}
+
+bool LiveStrategy_IsGreen(Agent::SP a) {
+    const auto &c = a->colour();
+    return (c.g / 4.0) > c.r & (c.g / 4.0) > c.b;
+}
+
+bool LiveStrategy_IsBlue(Agent::SP a) {
+    const auto &c = a->colour();
+    return (c.b / 4.0) > c.r & (c.b / 4.0) > c.g;
+}
+
+bool LiveStrategy_IsLarge(Agent::SP a) {
+    return a->size() > MIN_SIZE + ((MAX_SIZE - MIN_SIZE) * 0.8);
+}
+
+bool LiveStrategy_IsSmall(Agent::SP a) {
+    return a->size() < MIN_SIZE + ((MAX_SIZE - MIN_SIZE) * 0.2);
+}
+
+bool LiveStrategy_StuckOnBorder(Agent::SP a) {
+    const auto &p = a->position();
+    const auto mX = SCREEN_WIDTH / 25.0;
+    const auto mY = SCREEN_HEIGHT / 25.0;
+    const bool stuckX = std::abs(p.x) < mX || std::abs(SCREEN_WIDTH - p.x) < mX;
+    const bool stuckY = std::abs(p.y) < mY || std::abs(SCREEN_HEIGHT - p.y) < mY;
+    return stuckX || stuckY;
+}
+
 bool LiveStrategy(Agent::SP a) {
-    return LiveStrategy_Corners(a) && LiveStrategy_InBounds(a);
+    return
+        true 
+        // !LiveStrategy_StuckOnBorder(a)
+        // && LiveStrategy_LowVelocity(a)
+        && LiveStrategy_IsSmall(a)
+        && (
+            (LiveStrategy_OffCentreTenthBox1(a) && LiveStrategy_IsGreen(a))
+            ||
+            (LiveStrategy_OffCentreTenthBox2(a) && LiveStrategy_IsRed(a))
+        );
 }
 
 // Neurons
@@ -346,28 +411,48 @@ public:
 class Source_West : public Neuron {
 public:
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
-        return 1 - (a->position().x / SCREEN_WIDTH);
+        const auto v = 1 - (a->position().x / SCREEN_WIDTH);
+        if (v < 0 || v > 1) {
+            // out of bounds does not count
+            return 0;
+        }
+        return v;
     }
 };
 
 class Source_East : public Neuron {
 public:
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
-        return (a->position().x / SCREEN_WIDTH);
+        const auto v = (a->position().x / SCREEN_WIDTH);
+        if (v < 0 || v > 1) {
+            // out of bounds does not count
+            return 0;
+        }
+        return v;
     }
 };
 
 class Source_North : public Neuron {
 public:
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
-        return 1 - (a->position().y / SCREEN_HEIGHT);
+        const auto v = 1 - (a->position().y / SCREEN_HEIGHT);
+        if (v < 0 || v > 1) {
+            // out of bounds does not count
+            return 0;
+        }
+        return v;
     }
 };
 
 class Source_South : public Neuron {
 public:
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
-        return (a->position().y / SCREEN_HEIGHT);
+        const auto v = (a->position().y / SCREEN_HEIGHT);
+        if (v < 0 || v > 1) {
+            // out of bounds does not count
+            return 0;
+        }
+        return v;
     }
 };
 
@@ -399,6 +484,34 @@ public:
     }
 };
 
+class Source_Red : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        return a->colour().r / 255.0;
+    }
+};
+
+class Source_Green : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        return a->colour().g / 255.0;
+    }
+};
+
+class Source_Blue : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        return a->colour().b / 255.0;
+    }
+};
+
+class Source_Size : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        return a->size() / MAX_SIZE;
+    }
+};
+
 #if USE_KDTREE
 class Source_NumNeighbours : public Neuron {
 public:
@@ -423,6 +536,10 @@ int InitSources() {
     Sources.push_back(std::make_shared<Source_Velocity_Y>());
     Sources.push_back(std::make_shared<Source_Goal_Reached>());
     Sources.push_back(std::make_shared<Source_Out_of_Bounds>());
+    Sources.push_back(std::make_shared<Source_Red>());
+    Sources.push_back(std::make_shared<Source_Green>());
+    Sources.push_back(std::make_shared<Source_Blue>());
+    Sources.push_back(std::make_shared<Source_Size>());
 
 #if USE_KDTREE
     Sources.push_back(std::make_shared<Source_NumNeighbours>());
@@ -465,6 +582,41 @@ public:
     }
 };
 
+class Sink_Red : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        auto &c = a->colour();
+        c.r = std::abs(255 * weight);
+        return 0.f;
+    }
+};
+
+class Sink_Green : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        auto &c = a->colour();
+        c.g = std::abs(255 * weight);
+        return 0.f;
+    }
+};
+
+class Sink_Blue : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        auto &c = a->colour();
+        c.b = std::abs(255 * weight);
+        return 0.f;
+    }
+};
+
+class Sink_Size : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        a->size(std::abs((MAX_SIZE * weight)));
+        return 0.f;
+    }
+};
+
 static std::vector<Neuron::SP> Sinks;
 
 int InitSinks() {
@@ -472,6 +624,10 @@ int InitSinks() {
     Sinks.push_back(std::make_shared<Sink_Velocity_Y>());
     Sinks.push_back(std::make_shared<Sink_Move_Horizontal>());
     Sinks.push_back(std::make_shared<Sink_Move_Vertical>());
+    Sinks.push_back(std::make_shared<Sink_Red>());
+    Sinks.push_back(std::make_shared<Sink_Green>());
+    Sinks.push_back(std::make_shared<Sink_Blue>());
+    Sinks.push_back(std::make_shared<Sink_Size>());
 
     return 0;
 }
@@ -498,6 +654,53 @@ private:
     Numeric m_val;
 };
 
+class AveragingMemoryNeuron : public Neuron {
+public:
+    using SP = std::shared_ptr<AveragingMemoryNeuron>;
+
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        if (!read) // write
+        {
+            m_val += weight;
+            m_n++;
+        }
+        if (m_n > 0) {
+            return m_val / m_n;
+        } else {
+            return 0;
+        }
+    }
+
+    void reset() {
+        m_val = 0;
+        m_n = 0;
+    }
+
+private:
+    Numeric m_val;
+    size_t m_n;
+};
+
+class MaxMemoryNeuron : public Neuron {
+public:
+    using SP = std::shared_ptr<MaxMemoryNeuron>;
+
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        if (!read) // write
+        {
+            m_val = std::abs(weight) > std::abs(m_val) ? weight : m_val;
+        }
+        return m_val;
+    }
+
+    void reset() {
+        m_val = 0;
+    }
+
+private:
+    Numeric m_val;
+};
+
 // Agents
 
 using BrainConnection = std::tuple<Neuron::SP, Numeric, Neuron::SP>;
@@ -506,6 +709,8 @@ using Brain = std::vector<BrainConnection>;
 class NeuralAgent : public Agent {
 public:
     using SP = std::shared_ptr<NeuralAgent>;
+    
+    using MemoryType = SummingMemoryNeuron;
 
     NeuralAgent() : Agent() {
         setupBrain();
@@ -603,15 +808,17 @@ private:
         m_brain.clear();
         m_memory.clear();
 
-        for (size_t i = 0; i < NUM_MEMORY; ++i) {
-            m_memory.push_back(std::make_shared<SummingMemoryNeuron>());
+        for (size_t i = 0; i < NUM_MEMORY_LAYERS * NUM_MEMORY_PER_LAYER; ++i) {
+            m_memory.push_back(std::make_shared<MemoryType>());
         }
+        // std::cout << " total mem neurons " << m_memory.size() << std::endl;
 
-        // connect every source to every memory neuron
+        // connect every source to every memory neuron in the first layer
         for (size_t i = 0; i < Sources.size(); ++i) {
             auto src = Sources[i];
-            for (size_t k = 0; k < m_memory.size(); ++k) {
-                auto m = m_memory[k];
+            for (size_t j = 0; j < NUM_MEMORY_PER_LAYER; ++j) {
+                auto m = m_memory[j];
+                // std::cout << " connect src " << i << " to mem " << j << std::endl;
                 BrainConnection c(src, 0.f, m);
                 m_brain.push_back(c);
             }
@@ -619,11 +826,28 @@ private:
 
         // there are no direct Source - Sink connections
 
-        // connect every memory neuron to every sink
-        for (size_t k = 0; k < m_memory.size(); ++k) {
-            auto m = m_memory[k];
-            for (size_t i = 0; i < Sinks.size(); ++i) {
-                auto snk = Sinks[i];
+        // connect each layer to the next
+        for (size_t w = 0; w < NUM_MEMORY_LAYERS - 1; ++w) {
+            for (size_t i = 0; i < NUM_MEMORY_PER_LAYER; ++i) {
+                const auto im1 = i + (w * NUM_MEMORY_PER_LAYER);
+                auto m1 = m_memory[im1];
+                for (size_t j = 0; j < NUM_MEMORY_PER_LAYER; ++j) {
+                    const auto im2 = j + ((w + 1)*NUM_MEMORY_PER_LAYER);
+                    auto m2 = m_memory[im2];
+                    // std::cout << " connect mem " << im1 << " to mem " << im2 << std::endl;
+                    BrainConnection c(m1, 0.f, m2);
+                    m_brain.push_back(c);
+                }
+            }
+        }
+
+        // connect every memory neuron in the last layer to every sink
+        for (size_t i = 0; i < NUM_MEMORY_PER_LAYER; ++i) {
+            const auto im = i + ((NUM_MEMORY_LAYERS - 1) * NUM_MEMORY_PER_LAYER);
+            auto m = m_memory[im];
+            for (size_t j = 0; j < Sinks.size(); ++j) {
+                auto snk = Sinks[j];
+                // std::cout << " connect mem " << im << " to sink " << j << std::endl;
                 BrainConnection c(m, 0.f, snk);
                 m_brain.push_back(c);
             }
@@ -634,8 +858,8 @@ private:
         m_brain.clear();
         m_memory.clear();
 
-        for (size_t i = 0; i < NUM_MEMORY; ++i) {
-            m_memory.push_back(std::make_shared<SummingMemoryNeuron>());
+        for (size_t i = 0; i < NUM_MEMORY_LAYERS * NUM_MEMORY_PER_LAYER; ++i) {
+            m_memory.push_back(std::make_shared<MemoryType>());
         }
 
         // the order of connection is important;
@@ -662,8 +886,8 @@ private:
         // connect all memory neurons together;
         // this is both read and write on memory;
         // is this consistent?
-        for (size_t i = 0; i < NUM_MEMORY; ++i) {
-            for (size_t j = 0; j < NUM_MEMORY; ++j) {
+        for (size_t i = 0; i < m_memory.size(); ++i) {
+            for (size_t j = 0; j < m_memory.size(); ++j) {
                 auto m1 = m_memory[i];
                 auto m2 = m_memory[j];
                 BrainConnection c1(m1, 0.f, m2);
@@ -672,7 +896,7 @@ private:
         }
 
         // connect all memory neurons to all sinks
-        for (size_t i = 0; i < NUM_MEMORY; ++i) {
+        for (size_t i = 0; i < m_memory.size(); ++i) {
             auto m = m_memory[i];
             for (size_t j = 0; j < Sinks.size(); ++j) {
                 auto snk = Sinks[j];
@@ -687,28 +911,24 @@ private:
     }
 
     Brain m_brain;
-    std::vector<SummingMemoryNeuron::SP> m_memory;
+    std::vector<MemoryType::SP> m_memory;
 };
 
-std::vector<Position> InitialPositions;
-std::vector<Numeric> InitialVelsX;
-std::vector<Numeric> InitialVelsY;
+void InitialCondition(Agent::SP a) {
+    a->size(MIN_SIZE + (randf() * (MAX_SIZE - MIN_SIZE)));
+    a->position(RandomPosition(SCREEN_WIDTH, SCREEN_HEIGHT));
+    a->colour(RandomColour());
+    a->velocity_x(bipolarrandf() * MAX_VELOCITY);
+    a->velocity_y(bipolarrandf() * MAX_VELOCITY);
+}
 
 int InitPopulation() {
     population.agents.clear();
 
-    for (size_t i = 0; i < NUMBOIDS * 10; ++i) {
+    for (size_t i = 0; i < NUMBOIDS; ++i) {
         auto a = std::make_shared<NeuralAgent>();
         population.agents.push_back(a);
-     
-        a->position(RandomPosition(SCREEN_WIDTH, SCREEN_HEIGHT));
-        a->colour(RandomColour());
-        a->velocity_x(bipolarrandf() * MAX_VELOCITY);
-        a->velocity_y(bipolarrandf() * MAX_VELOCITY);
-
-        InitialPositions.push_back(a->position());
-        InitialVelsX.push_back(a->velocity_x());
-        InitialVelsY.push_back(a->velocity_y());
+        InitialCondition(a);
 
         // randomize brain weights
         auto &b = a->brain();
@@ -733,7 +953,10 @@ int NextGeneration(size_t generation) {
 
     NUM_SURVIVORS = survivors.size();
     if (NUM_SURVIVORS == 0) {
-        return 1;
+        // re-popluate
+        std::cout << "Everyone's dead, Dave. Re-populating in generation " << (generation+1) << std::endl;
+        InitPopulation();
+        survivors.swap(population.agents);
     }
 
     // reproduce;
@@ -745,15 +968,8 @@ int NextGeneration(size_t generation) {
         auto e = std::static_pointer_cast<Agent>(a);
         nextpop.push_back(e);
 
-        // // Repeat initial conditions
-        // nextpop[i]->position(InitialPositions[i]);
-        // nextpop[i]->velocity_x(InitialVelsX[i]);
-        // nextpop[i]->velocity_y(InitialVelsY[i]);
-
         // New initial conditions
-        nextpop[i]->position(RandomPosition(SCREEN_WIDTH, SCREEN_HEIGHT));
-        nextpop[i]->velocity_x(bipolarrandf() * MAX_VELOCITY);
-        nextpop[i]->velocity_y(bipolarrandf() * MAX_VELOCITY);
+        InitialCondition(nextpop[i]);
     }
 
     // mutate
@@ -772,20 +988,6 @@ int NextGeneration(size_t generation) {
 
             // unbounded weights
             std::get<1>(b[j]) += (bipolarrandf() * MUTATION);
-        }
-        // reset colours every 100 gens
-        if (generation % 100 == 0)
-        {
-            a->colour(RandomColour());
-        }
-        // otherwise mutate
-        else
-        {
-            // BUG: this has a tendency to fade to black over time?
-            auto &c = a->colour();
-            c.r = std::max(0.0, std::min(255., c.r + (256 * bipolarrandf() * MUTATION)));
-            c.g = std::max(0.0, std::min(255., c.g + (256 * bipolarrandf() * MUTATION)));
-            c.b = std::max(0.0, std::min(255., c.b + (256 * bipolarrandf() * MUTATION)));
         }
     }
 
@@ -930,10 +1132,10 @@ int UpdateEntt(double time)
 
 int Render(size_t generation, size_t iter, int frame, double time)
 {
-    // partial render 9/10 generations
-    if (generation % 10 != 0)
+    // render only end frame for most generations, but not the first
+    if (generation != 0 && generation % REALTIME_EVERY_NGENS != 0)
     {
-        if (frame % 75 != 0)
+        if (iter != (GEN_ITERS - 1))
         {
             return 0;
         }
@@ -946,6 +1148,7 @@ int Render(size_t generation, size_t iter, int frame, double time)
     }
 
     // entt points
+    size_t living = 0;
     {
         int szx;
         int szy;
@@ -955,11 +1158,16 @@ int Render(size_t generation, size_t iter, int frame, double time)
         for (const auto entity : population.agents)
         {
             const auto &col = entity->colour();
-            auto alpha = LiveStrategy(entity) ? 255 : 48;
-            SDL_SetRenderDrawColor(render, col.r, col.g, col.b, alpha);
+            
+            Uint8 alpha = 48;
+            if (LiveStrategy(entity)) {
+                alpha = 255;
+                living++;
+            }
+
             const auto &pos = entity->position();
-            SDL_FRect r{offsx + pos.x - 2, offsy + pos.y - 2, 4, 4};
-            SDL_RenderDrawRectF(render, &r);
+            const auto &sz = entity->size();
+            filledCircleRGBA(render, offsx + pos.x, offsy + pos.y, sz, col.r, col.g, col.b, alpha);
         };
     }
 
@@ -969,12 +1177,13 @@ int Render(size_t generation, size_t iter, int frame, double time)
         stats.precision(3);
         stats.fill(' ');
         stats 
-            << "   g= " << std::setw(5) << generation
-            << "   i= " << std::setw(5) << iter
-            << "   f= " << std::setw(5) << frame
+            << "   g= " << std::setw(5) << (generation + 1)
+            << "   i= " << std::setw(5) << (iter + 1)
+            << "   f= " << std::setw(5) << (frame + 1)
             << "   t= " << std::setw(5) << time
             << "   p= " << std::setw(5) << population.agents.size()
-            << "   s= " << std::setw(5) << NUM_SURVIVORS
+            << "   sc= " << std::setw(5) << living
+            << "   st= " << std::setw(5) << NUM_SURVIVORS
             << "   fps= " << std::setw(3) << (frame / time);
         SDL_Color txtc{255, 255, 255};
         auto statsstr = stats.str();
@@ -1055,11 +1264,22 @@ int main()
                 std::cerr << "error rendering: " << SDL_GetError() << std::endl;
                 return cleanup(1);
             }
+
+            // slow down for real-time animation 1/REALTIME_EVERY_NGENS generations,
+            // but not the first
+            if (g != 0 && g % REALTIME_EVERY_NGENS == 0) {
+                const auto t_render = now();
+                const auto dt_render = dt(t_iter, t_render);
+                const auto delay = (1000/24.) - dt_render;
+                // std::cout << " rt delay = " << delay << std::endl;
+                if (delay > 0) {
+                    SDL_Delay(delay);
+                }
+            }
         }
 
         if (NextGeneration(g)) {
-            std::cout << "Everyone's dead dave. end." << std::endl;
-            break;
+            return cleanup(1);
         }
     }
 
