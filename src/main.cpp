@@ -24,12 +24,12 @@ constexpr uint SCREEN_WIDTH = 800;
 constexpr uint SCREEN_HEIGHT = 800;
 
 constexpr uint NUMBOIDS = 5000;
-constexpr Numeric MUTATION = 0.01f;
+constexpr Numeric MUTATION = 0.0001f;
 constexpr Numeric NEURAL_THRESHOLD = 0.12f; // only for update_Threshold strategy
 constexpr size_t MAX_GENS = 12000;
 constexpr size_t GEN_ITERS = 400;
-constexpr Numeric MAX_VELOCITY = 5.5f;
-constexpr size_t NUM_MEMORY = 5;
+constexpr Numeric MAX_VELOCITY = 6.0;
+constexpr size_t NUM_MEMORY = 10;
 
 size_t NUM_SURVIVORS = 0;
 
@@ -267,7 +267,7 @@ bool LiveStrategy_TLTenth(Agent::SP a) {
 bool LiveStrategy_LowVelocity(Agent::SP a) {
     const auto vx = a->velocity_x();
     const auto vy = a->velocity_y();
-    return std::sqrt(vx*vx + vy*vy) < 2.5f;
+    return std::sqrt(vx*vx + vy*vy) < 0.5;
 }
 
 bool LiveStrategy_TLCircle(Agent::SP a) {
@@ -328,7 +328,7 @@ bool LiveStrategy_InBounds(Agent::SP a) {
 }
 
 bool LiveStrategy(Agent::SP a) {
-    return LiveStrategy_Corners(a) && !LiveStrategy_InBounds(a);
+    return LiveStrategy_Corners(a) && LiveStrategy_InBounds(a);
 }
 
 // Neurons
@@ -478,14 +478,20 @@ int InitSinks() {
 
 // Special Neurons
 
-class MemoryNeuron : public Neuron {
+class SummingMemoryNeuron : public Neuron {
 public:
+    using SP = std::shared_ptr<SummingMemoryNeuron>;
+
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
         if (!read) // write
         {
-            m_val = weight;
+            m_val += weight;
         }
         return m_val;
+    }
+
+    void reset() {
+        m_val = 0;
     }
 
 private:
@@ -568,10 +574,17 @@ public:
     }
     
     void update() {
+        resetMemory();
         update_Every();
     }
     
 private:
+    void resetMemory() {
+        for (auto &m : m_memory) {
+            m->reset();
+        }
+    }
+
     void setupBrain_no_memory() {
         m_brain.clear();
         m_memory.clear();
@@ -591,7 +604,7 @@ private:
         m_memory.clear();
 
         for (size_t i = 0; i < NUM_MEMORY; ++i) {
-            m_memory.push_back(std::make_shared<MemoryNeuron>());
+            m_memory.push_back(std::make_shared<SummingMemoryNeuron>());
         }
 
         // connect every source to every memory neuron
@@ -622,7 +635,7 @@ private:
         m_memory.clear();
 
         for (size_t i = 0; i < NUM_MEMORY; ++i) {
-            m_memory.push_back(std::make_shared<MemoryNeuron>());
+            m_memory.push_back(std::make_shared<SummingMemoryNeuron>());
         }
 
         // the order of connection is important;
@@ -670,11 +683,11 @@ private:
     }
 
     void setupBrain() {
-        setupBrain_fully_connected_memory();
+        setupBrain_layered_memory();
     }
 
     Brain m_brain;
-    std::vector<MemoryNeuron::SP> m_memory;
+    std::vector<SummingMemoryNeuron::SP> m_memory;
 };
 
 std::vector<Position> InitialPositions;
@@ -684,7 +697,7 @@ std::vector<Numeric> InitialVelsY;
 int InitPopulation() {
     population.agents.clear();
 
-    for (size_t i = 0; i < NUMBOIDS; ++i) {
+    for (size_t i = 0; i < NUMBOIDS * 10; ++i) {
         auto a = std::make_shared<NeuralAgent>();
         population.agents.push_back(a);
      
@@ -731,9 +744,16 @@ int NextGeneration(size_t generation) {
         auto a = std::make_shared<NeuralAgent>(cloneFrom);
         auto e = std::static_pointer_cast<Agent>(a);
         nextpop.push_back(e);
-        nextpop[i]->position(InitialPositions[i]);
-        nextpop[i]->velocity_x(InitialVelsX[i]);
-        nextpop[i]->velocity_y(InitialVelsY[i]);
+
+        // // Repeat initial conditions
+        // nextpop[i]->position(InitialPositions[i]);
+        // nextpop[i]->velocity_x(InitialVelsX[i]);
+        // nextpop[i]->velocity_y(InitialVelsY[i]);
+
+        // New initial conditions
+        nextpop[i]->position(RandomPosition(SCREEN_WIDTH, SCREEN_HEIGHT));
+        nextpop[i]->velocity_x(bipolarrandf() * MAX_VELOCITY);
+        nextpop[i]->velocity_y(bipolarrandf() * MAX_VELOCITY);
     }
 
     // mutate
