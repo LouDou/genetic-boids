@@ -24,8 +24,8 @@ constexpr uint SCREEN_WIDTH = 1800;
 constexpr uint SCREEN_HEIGHT = 1800;
 
 constexpr uint NUMBOIDS = 5000;
-constexpr Numeric MUTATION = 0.008f;
-constexpr Numeric NEURAL_THRESHOLD = 0.12f;
+constexpr Numeric MUTATION = 0.1f;
+constexpr Numeric NEURAL_THRESHOLD = 0.12f; // only for update_Threshold strategy
 constexpr size_t MAX_GENS = 12000;
 constexpr size_t GEN_ITERS = 500;
 constexpr Numeric MAX_VELOCITY = 4.5f;
@@ -77,7 +77,7 @@ Colour RandomColour()
     return c;
 }
 
-class Agent {
+class Agent : public std::enable_shared_from_this<Agent> {
 public:
 
     using SP = std::shared_ptr<Agent>;
@@ -193,335 +193,7 @@ kdtree_t kdtree(2, population, nanoflann::KDTreeSingleIndexAdaptorParams(5));
 nanoflann::SearchParams searchParams(32, 0, false);
 #endif
 
-// Neurons
-
-class Neuron {
-public:
-    using SP = std::shared_ptr<Neuron>;
-
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) = 0;
-
-};
-
-// Source neurons
-
-class Source_West : public Neuron {
-public:
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) {
-        return 1 - (a->position().x / SCREEN_WIDTH);
-    }
-};
-
-class Source_East : public Neuron {
-public:
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) {
-        return (a->position().x / SCREEN_WIDTH);
-    }
-};
-
-class Source_North : public Neuron {
-public:
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) {
-        return 1 - (a->position().y / SCREEN_HEIGHT);
-    }
-};
-
-class Source_South : public Neuron {
-public:
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) {
-        return (a->position().y / SCREEN_HEIGHT);
-    }
-};
-
-class Source_Velocity_X : public Neuron {
-public:
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) {
-        return a->velocity_x() / MAX_VELOCITY;
-    }
-};
-
-class Source_Velocity_Y : public Neuron {
-public:
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) {
-        return a->velocity_y() / MAX_VELOCITY;
-    }
-};
-
-#if USE_KDTREE
-class Source_NumNeighbours : public Neuron {
-public:
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) {
-        const auto &p = a->position();
-        const double pt[2] = {p.x, p.y};
-        std::vector<std::pair<unsigned int, double>> results;
-        const auto count = 1 + kdtree.radiusSearch(pt, 8.0, results, searchParams);
-        return results.size() / static_cast<Numeric>(NUMBOIDS);
-    }
-};
-#endif
-
-std::vector<Neuron::SP> Sources;
-
-int InitSources() {
-    Sources.push_back(std::make_shared<Source_West>());
-    Sources.push_back(std::make_shared<Source_East>());
-    Sources.push_back(std::make_shared<Source_North>());
-    Sources.push_back(std::make_shared<Source_South>());
-    Sources.push_back(std::make_shared<Source_Velocity_X>());
-    Sources.push_back(std::make_shared<Source_Velocity_Y>());
-
-#if USE_KDTREE
-    Sources.push_back(std::make_shared<Source_NumNeighbours>());
-#endif
-
-    return 0;
-}
-
-// Sink neurons
-
-class Sink_Move_Horizontal : public Neuron {
-public:
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) {
-        a->moveX(weight * a->velocity_x());
-        return 0.f;
-    }
-};
-
-class Sink_Move_Vertical : public Neuron {
-public:
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) {
-        a->moveY(weight * a->velocity_y());
-        return 0.f;
-    }
-};
-
-class Sink_Velocity_X : public Neuron {
-public:
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) {
-        a->velocity_x(a->velocity_x() + weight);
-        return 0.f;
-    }
-};
-
-class Sink_Velocity_Y : public Neuron {
-public:
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) {
-        a->velocity_y(a->velocity_y() + weight);
-        return 0.f;
-    }
-};
-
-static std::vector<Neuron::SP> Sinks;
-
-int InitSinks() {
-    Sinks.push_back(std::make_shared<Sink_Velocity_X>());
-    Sinks.push_back(std::make_shared<Sink_Velocity_Y>());
-    Sinks.push_back(std::make_shared<Sink_Move_Horizontal>());
-    Sinks.push_back(std::make_shared<Sink_Move_Vertical>());
-
-    return 0;
-}
-
-// Special Neurons
-
-class MemoryNeuron : public Neuron {
-public:
-    virtual Numeric calculate(Agent *a, Numeric weight, bool read) {
-        if (!read) // write
-        {
-            m_val = weight;
-        }
-        return m_val;
-    }
-
-private:
-    Numeric m_val;
-};
-
-// Agents
-
-using BrainConnection = std::tuple<Neuron::SP, Numeric, Neuron::SP>;
-using Brain = std::vector<BrainConnection>;
-
-class NeuralAgent : public Agent {
-public:
-    using SP = std::shared_ptr<NeuralAgent>;
-
-    NeuralAgent() : Agent() {
-        setupBrain();
-    }
-
-    NeuralAgent(const NeuralAgent::SP other) : Agent(other) {
-        setupBrain();
-        // copy brain weights
-        const auto &b = other->brain();
-        // std::cout << "NA copy my brain = " << m_brain.size() << " other brain = " << b.size() << std::endl;
-        for (size_t i = 0; i < m_brain.size(); ++i) {
-            std::get<1>(m_brain[i]) = std::get<1>(b[i]);
-        }
-    }
-
-    Brain& brain() {
-        return m_brain;
-    }
-
-    const Brain& brain() const {
-        return m_brain;
-    }
-
-    void update_Max() {
-        Numeric maxval = -1;
-        int maxidx = -1;
-
-        // calculate neuron activation values
-        for (size_t i = 0; i < m_brain.size(); ++i) {
-            auto &[src, w, snk] = m_brain[i];
-            auto val = src->calculate(this, w, true) * w;
-            // std::cout << "w=" << w << " val=" << val << " maxval=" << maxval << std::endl;
-            // find maximally activated sink
-            if (val > 0.f && val > maxval) {
-                maxval = val;
-                maxidx = i;
-            }
-        }
-
-        if (maxidx > -1 && maxidx < m_brain.size()) {
-            auto [src, w, snk] = m_brain[maxidx];
-            // activate sink
-            snk->calculate(this, w, false);
-        }
-    }
-
-    void update_Threshold() {
-        // calculate neuron activation values
-        for (size_t i = 0; i < m_brain.size(); ++i) {
-            auto &[src, w, snk] = m_brain[i];
-            auto val = src->calculate(this, w, true) * w;
-            // activate above threshold
-            if (std::abs(val) > NEURAL_THRESHOLD) {
-                snk->calculate(this, val, false);
-            }
-        }
-    }
-
-    void update_Every() {
-        // calculate neuron activation values
-        for (size_t i = 0; i < m_brain.size(); ++i) {
-            auto &[src, w, snk] = m_brain[i];
-            auto val = src->calculate(this, w, true) * w;
-            snk->calculate(this, val, false);
-        }
-    }
-    
-    void update() {
-        update_Every();
-    }
-    
-private:
-    void setupBrain_no_memory() {
-        m_brain.clear();
-        m_memory.clear();
-
-        for (size_t i = 0; i < Sources.size(); ++i) {
-            auto src = Sources[i];
-            for (size_t j = 0; j < Sinks.size(); ++j) {
-                auto snk = Sinks[j];
-                BrainConnection c(src, 0.f, snk);
-                m_brain.push_back(c);
-            }
-        }
-    }
-
-    void setupBrain_layered_memory() {
-        m_brain.clear();
-        m_memory.clear();
-
-        for (size_t i = 0; i < NUM_MEMORY; ++i) {
-            m_memory.push_back(std::make_shared<MemoryNeuron>());
-        }
-
-        // connect every source to every memory neuron
-        for (size_t i = 0; i < Sources.size(); ++i) {
-            auto src = Sources[i];
-            for (size_t k = 0; k < m_memory.size(); ++k) {
-                auto m = m_memory[k];
-                BrainConnection c(src, 0.f, m);
-                m_brain.push_back(c);
-            }
-        }
-
-        // there are no direct Source - Sink connections
-
-        // connect every memory neuron to every sink
-        for (size_t k = 0; k < m_memory.size(); ++k) {
-            auto m = m_memory[k];
-            for (size_t i = 0; i < Sinks.size(); ++i) {
-                auto snk = Sinks[i];
-                BrainConnection c(m, 0.f, snk);
-                m_brain.push_back(c);
-            }
-        }
-    }
-
-    void setupBrain_fully_connected_memory() {
-        m_brain.clear();
-        m_memory.clear();
-
-        for (size_t i = 0; i < NUM_MEMORY; ++i) {
-            m_memory.push_back(std::make_shared<MemoryNeuron>());
-        }
-
-        // the order of connection is important;
-        // we want to perform all memory writes
-        // before any memory reads
-
-        for (size_t i = 0; i < Sources.size(); ++i) {
-            auto src = Sources[i];
-            // connect all sources and sinks
-            for (size_t j = 0; j < Sinks.size(); ++j) {
-                auto snk = Sinks[j];
-                BrainConnection c(src, 0.f, snk);
-                m_brain.push_back(c);
-
-            }
-            // connect every source to every memory neuron
-            for (size_t k = 0; k < m_memory.size(); ++k) {
-                auto m = m_memory[k];
-                BrainConnection c(src, 0.f, m);
-                m_brain.push_back(c);
-            }
-        }
-
-        // connect all memory neurons together;
-        // this is both read and write on memory;
-        // is this consistent?
-        for (size_t i = 0; i < NUM_MEMORY; ++i) {
-            for (size_t j = 0; j < NUM_MEMORY; ++j) {
-                auto m1 = m_memory[i];
-                auto m2 = m_memory[j];
-                BrainConnection c1(m1, 0.f, m2);
-                m_brain.push_back(c1);
-            }
-        }
-
-        // connect all memory neurons to all sinks
-        for (size_t i = 0; i < NUM_MEMORY; ++i) {
-            auto m = m_memory[i];
-            for (size_t j = 0; j < Sinks.size(); ++j) {
-                auto snk = Sinks[j];
-                BrainConnection c(m, 0.f, snk);
-                m_brain.push_back(c);
-            }
-        }
-    }
-
-    void setupBrain() {
-        setupBrain_fully_connected_memory();
-    }
-
-    Brain m_brain;
-    std::vector<MemoryNeuron::SP> m_memory;
-};
+// Win conditions
 
 bool LiveStrategy_LeftHalf(Agent::SP a) {
     return a->position().x < SCREEN_WIDTH / 2.f;
@@ -651,8 +323,355 @@ bool LiveStrategy_VertTenths(Agent::SP a) {
 }
 
 bool LiveStrategy(Agent::SP a) {
-    return LiveStrategy_OffCentreTenthBox(a);
+    return LiveStrategy_Corners(a);
 }
+
+// Neurons
+
+class Neuron {
+public:
+    using SP = std::shared_ptr<Neuron>;
+
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) = 0;
+
+};
+
+// Source neurons
+
+class Source_West : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        return 1 - (a->position().x / SCREEN_WIDTH);
+    }
+};
+
+class Source_East : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        return (a->position().x / SCREEN_WIDTH);
+    }
+};
+
+class Source_North : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        return 1 - (a->position().y / SCREEN_HEIGHT);
+    }
+};
+
+class Source_South : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        return (a->position().y / SCREEN_HEIGHT);
+    }
+};
+
+class Source_Velocity_X : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        return a->velocity_x() / MAX_VELOCITY;
+    }
+};
+
+class Source_Velocity_Y : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        return a->velocity_y() / MAX_VELOCITY;
+    }
+};
+
+class Source_Goal_Reached : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        return LiveStrategy(a) ? 1 : 0;
+    }
+};
+
+class Source_Out_of_Bounds : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        const auto &p = a->position();
+        return p.x < 0 || p.x > SCREEN_WIDTH || p.y < 0 || p.y > SCREEN_HEIGHT ? 1 : 0;
+    }
+};
+
+#if USE_KDTREE
+class Source_NumNeighbours : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        const auto &p = a->position();
+        const double pt[2] = {p.x, p.y};
+        std::vector<std::pair<unsigned int, double>> results;
+        const auto count = 1 + kdtree.radiusSearch(pt, 8.0, results, searchParams);
+        return results.size() / static_cast<Numeric>(NUMBOIDS);
+    }
+};
+#endif
+
+std::vector<Neuron::SP> Sources;
+
+int InitSources() {
+    Sources.push_back(std::make_shared<Source_West>());
+    Sources.push_back(std::make_shared<Source_East>());
+    Sources.push_back(std::make_shared<Source_North>());
+    Sources.push_back(std::make_shared<Source_South>());
+    Sources.push_back(std::make_shared<Source_Velocity_X>());
+    Sources.push_back(std::make_shared<Source_Velocity_Y>());
+    Sources.push_back(std::make_shared<Source_Goal_Reached>());
+    Sources.push_back(std::make_shared<Source_Out_of_Bounds>());
+
+#if USE_KDTREE
+    Sources.push_back(std::make_shared<Source_NumNeighbours>());
+#endif
+
+    return 0;
+}
+
+// Sink neurons
+
+class Sink_Move_Horizontal : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        a->moveX(weight * a->velocity_x());
+        return 0.f;
+    }
+};
+
+class Sink_Move_Vertical : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        a->moveY(weight * a->velocity_y());
+        return 0.f;
+    }
+};
+
+class Sink_Velocity_X : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        a->velocity_x(a->velocity_x() + weight);
+        return 0.f;
+    }
+};
+
+class Sink_Velocity_Y : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        a->velocity_y(a->velocity_y() + weight);
+        return 0.f;
+    }
+};
+
+static std::vector<Neuron::SP> Sinks;
+
+int InitSinks() {
+    Sinks.push_back(std::make_shared<Sink_Velocity_X>());
+    Sinks.push_back(std::make_shared<Sink_Velocity_Y>());
+    Sinks.push_back(std::make_shared<Sink_Move_Horizontal>());
+    Sinks.push_back(std::make_shared<Sink_Move_Vertical>());
+
+    return 0;
+}
+
+// Special Neurons
+
+class MemoryNeuron : public Neuron {
+public:
+    virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
+        if (!read) // write
+        {
+            m_val = weight;
+        }
+        return m_val;
+    }
+
+private:
+    Numeric m_val;
+};
+
+// Agents
+
+using BrainConnection = std::tuple<Neuron::SP, Numeric, Neuron::SP>;
+using Brain = std::vector<BrainConnection>;
+
+class NeuralAgent : public Agent {
+public:
+    using SP = std::shared_ptr<NeuralAgent>;
+
+    NeuralAgent() : Agent() {
+        setupBrain();
+    }
+
+    NeuralAgent(const NeuralAgent::SP other) : Agent(other) {
+        setupBrain();
+        // copy brain weights
+        const auto &b = other->brain();
+        // std::cout << "NA copy my brain = " << m_brain.size() << " other brain = " << b.size() << std::endl;
+        for (size_t i = 0; i < m_brain.size(); ++i) {
+            std::get<1>(m_brain[i]) = std::get<1>(b[i]);
+        }
+    }
+
+    Brain& brain() {
+        return m_brain;
+    }
+
+    const Brain& brain() const {
+        return m_brain;
+    }
+
+    void update_Max() {
+        Numeric maxval = -1;
+        int maxidx = -1;
+
+        // calculate neuron activation values
+        for (size_t i = 0; i < m_brain.size(); ++i) {
+            auto &[src, w, snk] = m_brain[i];
+            auto val = src->calculate(shared_from_this(), w, true) * w;
+            // std::cout << "w=" << w << " val=" << val << " maxval=" << maxval << std::endl;
+            // find maximally activated sink
+            if (val > 0.f && val > maxval) {
+                maxval = val;
+                maxidx = i;
+            }
+        }
+
+        if (maxidx > -1 && maxidx < m_brain.size()) {
+            auto [src, w, snk] = m_brain[maxidx];
+            // activate sink
+            snk->calculate(shared_from_this(), w, false);
+        }
+    }
+
+    void update_Threshold() {
+        // calculate neuron activation values
+        for (size_t i = 0; i < m_brain.size(); ++i) {
+            auto &[src, w, snk] = m_brain[i];
+            auto val = src->calculate(shared_from_this(), w, true) * w;
+            // activate above threshold
+            if (std::abs(val) > NEURAL_THRESHOLD) {
+                snk->calculate(shared_from_this(), val, false);
+            }
+        }
+    }
+
+    void update_Every() {
+        // calculate neuron activation values
+        for (size_t i = 0; i < m_brain.size(); ++i) {
+            auto &[src, w, snk] = m_brain[i];
+            auto val = src->calculate(shared_from_this(), w, true) * w;
+            snk->calculate(shared_from_this(), val, false);
+        }
+    }
+    
+    void update() {
+        update_Every();
+    }
+    
+private:
+    void setupBrain_no_memory() {
+        m_brain.clear();
+        m_memory.clear();
+
+        for (size_t i = 0; i < Sources.size(); ++i) {
+            auto src = Sources[i];
+            for (size_t j = 0; j < Sinks.size(); ++j) {
+                auto snk = Sinks[j];
+                BrainConnection c(src, 0.f, snk);
+                m_brain.push_back(c);
+            }
+        }
+    }
+
+    void setupBrain_layered_memory() {
+        m_brain.clear();
+        m_memory.clear();
+
+        for (size_t i = 0; i < NUM_MEMORY; ++i) {
+            m_memory.push_back(std::make_shared<MemoryNeuron>());
+        }
+
+        // connect every source to every memory neuron
+        for (size_t i = 0; i < Sources.size(); ++i) {
+            auto src = Sources[i];
+            for (size_t k = 0; k < m_memory.size(); ++k) {
+                auto m = m_memory[k];
+                BrainConnection c(src, 0.f, m);
+                m_brain.push_back(c);
+            }
+        }
+
+        // there are no direct Source - Sink connections
+
+        // connect every memory neuron to every sink
+        for (size_t k = 0; k < m_memory.size(); ++k) {
+            auto m = m_memory[k];
+            for (size_t i = 0; i < Sinks.size(); ++i) {
+                auto snk = Sinks[i];
+                BrainConnection c(m, 0.f, snk);
+                m_brain.push_back(c);
+            }
+        }
+    }
+
+    void setupBrain_fully_connected_memory() {
+        m_brain.clear();
+        m_memory.clear();
+
+        for (size_t i = 0; i < NUM_MEMORY; ++i) {
+            m_memory.push_back(std::make_shared<MemoryNeuron>());
+        }
+
+        // the order of connection is important;
+        // we want to perform all memory writes
+        // before any memory reads
+
+        for (size_t i = 0; i < Sources.size(); ++i) {
+            auto src = Sources[i];
+            // connect all sources and sinks
+            for (size_t j = 0; j < Sinks.size(); ++j) {
+                auto snk = Sinks[j];
+                BrainConnection c(src, 0.f, snk);
+                m_brain.push_back(c);
+
+            }
+            // connect every source to every memory neuron
+            for (size_t k = 0; k < m_memory.size(); ++k) {
+                auto m = m_memory[k];
+                BrainConnection c(src, 0.f, m);
+                m_brain.push_back(c);
+            }
+        }
+
+        // connect all memory neurons together;
+        // this is both read and write on memory;
+        // is this consistent?
+        for (size_t i = 0; i < NUM_MEMORY; ++i) {
+            for (size_t j = 0; j < NUM_MEMORY; ++j) {
+                auto m1 = m_memory[i];
+                auto m2 = m_memory[j];
+                BrainConnection c1(m1, 0.f, m2);
+                m_brain.push_back(c1);
+            }
+        }
+
+        // connect all memory neurons to all sinks
+        for (size_t i = 0; i < NUM_MEMORY; ++i) {
+            auto m = m_memory[i];
+            for (size_t j = 0; j < Sinks.size(); ++j) {
+                auto snk = Sinks[j];
+                BrainConnection c(m, 0.f, snk);
+                m_brain.push_back(c);
+            }
+        }
+    }
+
+    void setupBrain() {
+        setupBrain_fully_connected_memory();
+    }
+
+    Brain m_brain;
+    std::vector<MemoryNeuron::SP> m_memory;
+};
 
 std::vector<Position> InitialPositions;
 std::vector<Numeric> InitialVelsX;
