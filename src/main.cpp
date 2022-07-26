@@ -20,16 +20,16 @@
 
 using Numeric = double;
 
-constexpr uint SCREEN_WIDTH = 1800;
-constexpr uint SCREEN_HEIGHT = 1800;
+constexpr uint SCREEN_WIDTH = 800;
+constexpr uint SCREEN_HEIGHT = 800;
 
 constexpr uint NUMBOIDS = 5000;
-constexpr Numeric MUTATION = 0.1f;
+constexpr Numeric MUTATION = 0.01f;
 constexpr Numeric NEURAL_THRESHOLD = 0.12f; // only for update_Threshold strategy
 constexpr size_t MAX_GENS = 12000;
-constexpr size_t GEN_ITERS = 500;
-constexpr Numeric MAX_VELOCITY = 4.5f;
-constexpr size_t NUM_MEMORY = 4;
+constexpr size_t GEN_ITERS = 400;
+constexpr Numeric MAX_VELOCITY = 5.5f;
+constexpr size_t NUM_MEMORY = 5;
 
 size_t NUM_SURVIVORS = 0;
 
@@ -204,44 +204,44 @@ bool LiveStrategy_RightHalf(Agent::SP a) {
 }
 
 bool LiveStrategy_CentreThirdBox(Agent::SP a) {
-    auto &p = a->position();
-    bool validX = (p.x > (SCREEN_WIDTH * 1.f/3.)) && (p.x < (SCREEN_WIDTH * 2.f/3.));
-    bool validY = (p.y > (SCREEN_HEIGHT * 1.f/3.)) && (p.y < (SCREEN_HEIGHT * 2.f/3.));
+    const auto &p = a->position();
+    const bool validX = (p.x > (SCREEN_WIDTH * 1.f/3.)) && (p.x < (SCREEN_WIDTH * 2.f/3.));
+    const bool validY = (p.y > (SCREEN_HEIGHT * 1.f/3.)) && (p.y < (SCREEN_HEIGHT * 2.f/3.));
     return validX && validY;
 }
 
 bool LiveStrategy_CentreFifthBox(Agent::SP a) {
-    auto &p = a->position();
-    bool validX = (p.x > (SCREEN_WIDTH * 2.f/5.)) && (p.x < (SCREEN_WIDTH * 3.f/5.));
-    bool validY = (p.y > (SCREEN_HEIGHT * 2.f/5.)) && (p.y < (SCREEN_HEIGHT * 3.f/5.));
+    const auto &p = a->position();
+    const bool validX = (p.x > (SCREEN_WIDTH * 2.f/5.)) && (p.x < (SCREEN_WIDTH * 3.f/5.));
+    const bool validY = (p.y > (SCREEN_HEIGHT * 2.f/5.)) && (p.y < (SCREEN_HEIGHT * 3.f/5.));
     return validX && validY;
 }
 
 bool LiveStrategy_CentreTenthBox(Agent::SP a) {
-    auto &p = a->position();
-    bool validX = (p.x > (SCREEN_WIDTH * 4.5f/10.)) && (p.x < (SCREEN_WIDTH * 5.5f/10.));
-    bool validY = (p.y > (SCREEN_HEIGHT * 4.5f/10.)) && (p.y < (SCREEN_HEIGHT * 5.5/10.));
+    const auto &p = a->position();
+    const bool validX = (p.x > (SCREEN_WIDTH * 4.5f/10.)) && (p.x < (SCREEN_WIDTH * 5.5f/10.));
+    const bool validY = (p.y > (SCREEN_HEIGHT * 4.5f/10.)) && (p.y < (SCREEN_HEIGHT * 5.5/10.));
     return validX && validY;
 }
 
 bool LiveStrategy_OffCentreTenthBox(Agent::SP a) {
-    auto &p = a->position();
-    bool validX = (p.x > (SCREEN_WIDTH * 3.5f/10.)) && (p.x < (SCREEN_WIDTH * 4.5f/10.));
-    bool validY = (p.y > (SCREEN_HEIGHT * 6.5f/10.)) && (p.y < (SCREEN_HEIGHT * 7.5/10.));
+    const auto &p = a->position();
+    const bool validX = (p.x > (SCREEN_WIDTH * 3.5f/10.)) && (p.x < (SCREEN_WIDTH * 4.5f/10.));
+    const bool validY = (p.y > (SCREEN_HEIGHT * 6.5f/10.)) && (p.y < (SCREEN_HEIGHT * 7.5/10.));
     return validX && validY;
 }
 
 bool LiveStrategy_CentreTwentiethBox(Agent::SP a) {
-    auto &p = a->position();
-    bool validX = (p.x > (SCREEN_WIDTH * 9.5f/20.)) && (p.x < (SCREEN_WIDTH * 10.5f/20.));
-    bool validY = (p.y > (SCREEN_HEIGHT * 9.5f/20.)) && (p.y < (SCREEN_HEIGHT * 10.5/20.));
+    const auto &p = a->position();
+    const bool validX = (p.x > (SCREEN_WIDTH * 9.5f/20.)) && (p.x < (SCREEN_WIDTH * 10.5f/20.));
+    const bool validY = (p.y > (SCREEN_HEIGHT * 9.5f/20.)) && (p.y < (SCREEN_HEIGHT * 10.5/20.));
     return validX && validY;
 }
 
 bool LiveStrategy_OffCentreTwentiethBox(Agent::SP a) {
-    auto &p = a->position();
-    bool validX = (p.x > (SCREEN_WIDTH * 3.5f/20.)) && (p.x < (SCREEN_WIDTH * 4.5f/20.));
-    bool validY = (p.y > (SCREEN_HEIGHT * 16.5f/20.)) && (p.y < (SCREEN_HEIGHT * 17.5/20.));
+    const auto &p = a->position();
+    const bool validX = (p.x > (SCREEN_WIDTH * 3.5f/20.)) && (p.x < (SCREEN_WIDTH * 4.5f/20.));
+    const bool validY = (p.y > (SCREEN_HEIGHT * 16.5f/20.)) && (p.y < (SCREEN_HEIGHT * 17.5/20.));
     return validX && validY;
 }
 
@@ -252,33 +252,33 @@ bool LiveStrategy_LeftRightTenth(Agent::SP a) {
 }
 
 bool LiveStrategy_TopBottomTenth(Agent::SP a) {
-    auto &p = a->position();
-    bool valid = (p.y < (SCREEN_HEIGHT * 0.1f/10.)) || (p.y > (SCREEN_HEIGHT * 0.9f/10.));
+    const auto &p = a->position();
+    const bool valid = (p.y < (SCREEN_HEIGHT * 0.1f/10.)) || (p.y > (SCREEN_HEIGHT * 0.9f/10.));
     return valid;
 }
 
 bool LiveStrategy_TLTenth(Agent::SP a) {
-    auto &p = a->position();
-    bool validX = p.x < (SCREEN_WIDTH * 0.1f);
-    bool validY = p.y < (SCREEN_HEIGHT * 0.1f);
+    const auto &p = a->position();
+    const bool validX = p.x < (SCREEN_WIDTH * 0.1f);
+    const bool validY = p.y < (SCREEN_HEIGHT * 0.1f);
     return validX && validY;
 }
 
 bool LiveStrategy_LowVelocity(Agent::SP a) {
-    auto vx = a->velocity_x();
-    auto vy = a->velocity_y();
+    const auto vx = a->velocity_x();
+    const auto vy = a->velocity_y();
     return std::sqrt(vx*vx + vy*vy) < 2.5f;
 }
 
 bool LiveStrategy_TLCircle(Agent::SP a) {
-    auto &p = a->position();
-    return std::sqrt(p.x*p.x + p.y*p.y) < (SCREEN_WIDTH / 15.f);
+    const auto &p = a->position();
+    return std::sqrt(p.x*p.x + p.y*p.y) < (SCREEN_WIDTH / 8.f);
 }
 
 bool LiveStrategy_TRCircle(Agent::SP a) {
-    auto &p = a->position();
-    auto dx = p.x - SCREEN_WIDTH;
-    return std::sqrt(dx*dx + p.y*p.y) < (SCREEN_WIDTH / 15.f);
+    const auto &p = a->position();
+    const auto dx = p.x - SCREEN_WIDTH;
+    return std::sqrt(dx*dx + p.y*p.y) < (SCREEN_WIDTH / 8.f);
 }
 
 bool LiveStrategy_TopCorners(Agent::SP a) {
@@ -286,16 +286,16 @@ bool LiveStrategy_TopCorners(Agent::SP a) {
 }
 
 bool LiveStrategy_BLCircle(Agent::SP a) {
-    auto &p = a->position();
-    auto dy = p.y - SCREEN_HEIGHT;
-    return std::sqrt(p.x*p.x + dy*dy) < (SCREEN_WIDTH / 15.f);
+    const auto &p = a->position();
+    const auto dy = p.y - SCREEN_HEIGHT;
+    return std::sqrt(p.x*p.x + dy*dy) < (SCREEN_WIDTH / 8.f);
 }
 
 bool LiveStrategy_BRCircle(Agent::SP a) {
-    auto &p = a->position();
-    auto dx = p.x - SCREEN_WIDTH;
-    auto dy = p.y - SCREEN_HEIGHT;
-    return std::sqrt(dx*dx + dy*dy) < (SCREEN_WIDTH / 15.f);
+    const auto &p = a->position();
+    const auto dx = p.x - SCREEN_WIDTH;
+    const auto dy = p.y - SCREEN_HEIGHT;
+    return std::sqrt(dx*dx + dy*dy) < (SCREEN_WIDTH / 8.f);
 }
 
 bool LiveStrategy_BottomCorners(Agent::SP a) {
@@ -307,23 +307,28 @@ bool LiveStrategy_Corners(Agent::SP a) {
 }
 
 bool LiveStrategy_HasVelocity(Agent::SP a) {
-    auto vx = a->velocity_x();
-    auto vy = a->velocity_y();
+    const auto vx = a->velocity_x();
+    const auto vy = a->velocity_y();
     return std::sqrt(vx*vx + vy*vy) > 0.01f;
 }
 
 bool LiveStrategy_HorizTenths(Agent::SP a) {
-    auto &p = a->position();
+    const auto &p = a->position();
     return (static_cast<int>(std::round(p.x / 10.f)) % 2) == 0;
 }
 
 bool LiveStrategy_VertTenths(Agent::SP a) {
-    auto &p = a->position();
+    const auto &p = a->position();
     return (static_cast<int>(std::round(p.y / 10.f)) % 2) == 0;
 }
 
+bool LiveStrategy_InBounds(Agent::SP a) {
+    const auto &p = a->position();
+    return p.x > 0 && p.x < SCREEN_WIDTH && p.y > 0 && p.y < SCREEN_HEIGHT;
+}
+
 bool LiveStrategy(Agent::SP a) {
-    return LiveStrategy_Corners(a);
+    return LiveStrategy_Corners(a) && !LiveStrategy_InBounds(a);
 }
 
 // Neurons
@@ -390,8 +395,7 @@ public:
 class Source_Out_of_Bounds : public Neuron {
 public:
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
-        const auto &p = a->position();
-        return p.x < 0 || p.x > SCREEN_WIDTH || p.y < 0 || p.y > SCREEN_HEIGHT ? 1 : 0;
+        return LiveStrategy_InBounds(a) ? 1 : 0;
     }
 };
 
