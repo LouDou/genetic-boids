@@ -19,23 +19,24 @@
 
 #define USE_KDTREE 0
 
-using Numeric = float;
+using Numeric = double;
 
-constexpr uint SCREEN_WIDTH = 1850;
-constexpr uint SCREEN_HEIGHT = 1850;
-constexpr uint NUMBOIDS = 6000;
+constexpr uint SCREEN_WIDTH = 1650;
+constexpr uint SCREEN_HEIGHT = 1650;
+constexpr uint NUMBOIDS = 5000;
 
-constexpr Numeric MUTATION = 0.005;
+constexpr Numeric MUTATION = 0.001;
 constexpr Numeric NEURAL_THRESHOLD = 0.12; // only for update_Threshold strategy
-constexpr size_t NUM_MEMORY_PER_LAYER = 3;
-constexpr size_t NUM_MEMORY_LAYERS = 3;
+constexpr size_t NUM_MEMORY_PER_LAYER = 5;
+constexpr size_t NUM_MEMORY_LAYERS = 2;
+constexpr Numeric MAX_WEIGHT = 2.0;
 
 constexpr Numeric MIN_SIZE = 2.0;
-constexpr Numeric MAX_SIZE = 18.0;
-constexpr Numeric MAX_VELOCITY = 75;
+constexpr Numeric MAX_SIZE = 15.0;
+constexpr Numeric MAX_VELOCITY = 45;
 
 constexpr size_t MAX_GENS = 12000;
-constexpr size_t GEN_ITERS = 250;
+constexpr size_t GEN_ITERS = 275;
 constexpr size_t REALTIME_EVERY_NGENS = 25;
 
 size_t NUM_SURVIVORS = 0;
@@ -388,11 +389,11 @@ bool LiveStrategy(Agent::SP a) {
         true 
         // !LiveStrategy_StuckOnBorder(a)
         // && LiveStrategy_LowVelocity(a)
-        && LiveStrategy_IsSmall(a)
+        // && LiveStrategy_IsSmall(a)
         && (
             (LiveStrategy_OffCentreTenthBox1(a) && LiveStrategy_IsGreen(a))
-            ||
-            (LiveStrategy_OffCentreTenthBox2(a) && LiveStrategy_IsRed(a))
+            // ||
+            // (LiveStrategy_OffCentreTenthBox2(a) && LiveStrategy_IsRed(a))
         );
 }
 
@@ -403,7 +404,6 @@ public:
     using SP = std::shared_ptr<Neuron>;
 
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) = 0;
-
 };
 
 // Source neurons
@@ -411,48 +411,28 @@ public:
 class Source_West : public Neuron {
 public:
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
-        const auto v = 1 - (a->position().x / SCREEN_WIDTH);
-        if (v < 0 || v > 1) {
-            // out of bounds does not count
-            return 0;
-        }
-        return v;
+        return (SCREEN_WIDTH - a->position().x) / SCREEN_WIDTH;
     }
 };
 
 class Source_East : public Neuron {
 public:
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
-        const auto v = (a->position().x / SCREEN_WIDTH);
-        if (v < 0 || v > 1) {
-            // out of bounds does not count
-            return 0;
-        }
-        return v;
+        return 1 - ((SCREEN_WIDTH - a->position().x) / SCREEN_WIDTH);
     }
 };
 
 class Source_North : public Neuron {
 public:
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
-        const auto v = 1 - (a->position().y / SCREEN_HEIGHT);
-        if (v < 0 || v > 1) {
-            // out of bounds does not count
-            return 0;
-        }
-        return v;
+        return (SCREEN_HEIGHT - a->position().y) / SCREEN_HEIGHT;
     }
 };
 
 class Source_South : public Neuron {
 public:
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
-        const auto v = (a->position().y / SCREEN_HEIGHT);
-        if (v < 0 || v > 1) {
-            // out of bounds does not count
-            return 0;
-        }
-        return v;
+        return 1 - ((SCREEN_HEIGHT - a->position().y) / SCREEN_HEIGHT);
     }
 };
 
@@ -550,7 +530,7 @@ int InitSources() {
 
 // Sink neurons
 
-class Sink_Move_Horizontal : public Neuron {
+class Sink_Position_X : public Neuron {
 public:
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
         a->moveX(weight * a->velocity_x());
@@ -558,7 +538,7 @@ public:
     }
 };
 
-class Sink_Move_Vertical : public Neuron {
+class Sink_Position_Y : public Neuron {
 public:
     virtual Numeric calculate(Agent::SP a, Numeric weight, bool read) {
         a->moveY(weight * a->velocity_y());
@@ -622,8 +602,8 @@ static std::vector<Neuron::SP> Sinks;
 int InitSinks() {
     Sinks.push_back(std::make_shared<Sink_Velocity_X>());
     Sinks.push_back(std::make_shared<Sink_Velocity_Y>());
-    Sinks.push_back(std::make_shared<Sink_Move_Horizontal>());
-    Sinks.push_back(std::make_shared<Sink_Move_Vertical>());
+    Sinks.push_back(std::make_shared<Sink_Position_X>());
+    Sinks.push_back(std::make_shared<Sink_Position_Y>());
     Sinks.push_back(std::make_shared<Sink_Red>());
     Sinks.push_back(std::make_shared<Sink_Green>());
     Sinks.push_back(std::make_shared<Sink_Blue>());
@@ -977,17 +957,17 @@ int NextGeneration(size_t generation) {
         auto a = std::static_pointer_cast<NeuralAgent>(e);
         auto &b = a->brain();
         for (size_t j = 0; j < b.size(); ++j) {
-            // // bounded weights
-            // std::get<1>(b[j]) = std::max(
-            //     -1.0,
-            //     std::min(
-            //         1.0,
-            //         std::get<1>(b[j]) + (bipolarrandf() * MUTATION)
-            //     )
-            // );
+            // bounded weights
+            std::get<1>(b[j]) = std::max(
+                -MAX_WEIGHT,
+                std::min(
+                    MAX_WEIGHT,
+                    std::get<1>(b[j]) + (bipolarrandf() * MUTATION)
+                )
+            );
 
-            // unbounded weights
-            std::get<1>(b[j]) += (bipolarrandf() * MUTATION);
+            // // unbounded weights
+            // std::get<1>(b[j]) += (bipolarrandf() * MUTATION);
         }
     }
 
