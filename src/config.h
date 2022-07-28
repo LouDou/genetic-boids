@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <inttypes.h>
 
 #define USE_KDTREE 0

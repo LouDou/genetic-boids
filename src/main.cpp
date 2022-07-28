@@ -178,11 +178,16 @@ int NextGeneration(size_t generation)
 
 SDL_Window *window = nullptr;
 SDL_Renderer *render = nullptr;
+SDL_Texture *texture = nullptr;
 TTF_Font *sans = nullptr;
 SDL_Event event;
 
 int cleanup(int returnCode)
 {
+    if (texture != nullptr)
+    {
+        SDL_DestroyTexture(texture);
+    }
     if (render != nullptr)
     {
         SDL_DestroyRenderer(render);
@@ -273,10 +278,16 @@ int InitSDL()
         return 1;
     }
 
-    SDL_SetRenderDrawColor(render, 0, 0, 0, 255);
-    SDL_RenderClear(render);
-    SDL_RenderPresent(render);
-    SDL_SetRenderDrawBlendMode(render, SDL_BLENDMODE_BLEND);
+    int szx;
+    int szy;
+    SDL_GetWindowSize(window, &szx, &szy);
+    texture = SDL_CreateTexture(render, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING | SDL_TEXTUREACCESS_TARGET, szx, szy);
+    if (texture == nullptr)
+    {
+        std::cerr << "could not create render texture" << SDL_GetError() << std::endl;
+        return 1;
+    }
+    SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 
     return 0;
 }
@@ -330,12 +341,14 @@ int Render(size_t generation, size_t iter, int frame, double time)
 
     // reset background
     {
+        // SDL_RenderClear(render);
+        SDL_SetRenderTarget(render, texture);
         SDL_SetRenderDrawColor(render, 0, 0, 0, 25);
         SDL_RenderFillRect(render, NULL);
     }
 
-    // entt points
     size_t living = 0;
+    // Render population
     {
         int szx;
         int szy;
@@ -359,7 +372,7 @@ int Render(size_t generation, size_t iter, int frame, double time)
         };
     }
 
-    // stats
+    // Render stats
     {
         std::stringstream stats;
         stats.precision(3);
@@ -388,7 +401,11 @@ int Render(size_t generation, size_t iter, int frame, double time)
     }
 
     // update
-    SDL_RenderPresent(render);
+    {
+        SDL_SetRenderTarget(render, NULL);
+        SDL_RenderCopy(render, texture, NULL, NULL);
+        SDL_RenderPresent(render);
+    }
 
     return 0;
 }

@@ -9,14 +9,14 @@ void random_seed(const int64_t seed)
     randengine.seed(seed);
 }
 
-std::uniform_real_distribution<double> randdist(0.0, 1.0);
-const double randf()
+std::uniform_real_distribution<Numeric> randdist(0.0, 1.0);
+const Numeric randf()
 {
     return randdist(randengine);
 }
 
-std::uniform_real_distribution<double> bipolarranddist(-1.0, 1.0);
-const double bipolarrandf()
+std::uniform_real_distribution<Numeric> bipolarranddist(-1.0, 1.0);
+const Numeric bipolarrandf()
 {
     return bipolarranddist(randengine);
 }

@@ -1,7 +1,7 @@
 #pragma once
 
-#include <inttypes.h>
+#include "config.h"
 
 void random_seed(const int64_t seed);
-const double randf();
-const double bipolarrandf();
+const Numeric randf();
+const Numeric bipolarrandf();
