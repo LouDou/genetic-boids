@@ -10,6 +10,14 @@
 
 #include <nanoflann.hpp>
 
+extern "C"
+{
+#include <libavcodec/avcodec.h>
+#include <libavutil/opt.h>
+#include <libavutil/imgutils.h>
+#include <libswscale/swscale.h>
+}
+
 #include "config.h"
 #include "agent.h"
 #include "conditions.h"
@@ -182,23 +190,8 @@ SDL_Texture *texture = nullptr;
 TTF_Font *sans = nullptr;
 SDL_Event event;
 
-int cleanup(int returnCode)
-{
-    if (texture != nullptr)
-    {
-        SDL_DestroyTexture(texture);
-    }
-    if (render != nullptr)
-    {
-        SDL_DestroyRenderer(render);
-    }
-    if (window != nullptr)
-    {
-        SDL_DestroyWindow(window);
-    }
-    SDL_Quit();
-    return returnCode;
-}
+constexpr auto SDL_PF = SDL_PIXELFORMAT_RGB24;
+constexpr auto AV_SRC_PF = AV_PIX_FMT_RGB24;
 
 std::string FindFont()
 {
@@ -281,7 +274,7 @@ int InitSDL()
     int szx;
     int szy;
     SDL_GetWindowSize(window, &szx, &szy);
-    texture = SDL_CreateTexture(render, SDL_PIXELFORMAT_ABGR8888, SDL_TEXTUREACCESS_STREAMING | SDL_TEXTUREACCESS_TARGET, szx, szy);
+    texture = SDL_CreateTexture(render, SDL_PF, SDL_TEXTUREACCESS_TARGET, szx, szy);
     if (texture == nullptr)
     {
         std::cerr << "could not create render texture" << SDL_GetError() << std::endl;
@@ -290,6 +283,23 @@ int InitSDL()
     SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 
     return 0;
+}
+
+void CleanupSDL()
+{
+    if (texture != nullptr)
+    {
+        SDL_DestroyTexture(texture);
+    }
+    if (render != nullptr)
+    {
+        SDL_DestroyRenderer(render);
+    }
+    if (window != nullptr)
+    {
+        SDL_DestroyWindow(window);
+    }
+    SDL_Quit();
 }
 
 int ProcessEvents()
@@ -328,7 +338,221 @@ int UpdateAgents(const size_t &iter)
     return 0;
 }
 
-int Render(size_t generation, size_t iter, int frame, double time)
+struct AVConfig
+{
+    size_t srcWidth;
+    size_t srcHeight;
+
+    std::string filename;
+    std::string codec_name = "libx264";
+    AVCodec *codec = nullptr;
+    AVCodecContext *c = nullptr;
+    FILE *f = nullptr;
+    AVFrame *frame = nullptr;
+    AVPacket *pkt = nullptr;
+    struct SwsContext *swc = nullptr;
+
+    int i = 0;
+} avconfig;
+
+int InitAV(const size_t &width, const size_t &height)
+{
+    if (config.SAVE_FRAMES)
+    {
+        avconfig.srcWidth = width;
+        avconfig.srcHeight = height;
+
+        std::stringstream ss;
+        ss << "gb-"
+           << std::hex << config.SEED
+           << ".mp4";
+        avconfig.filename = ss.str();
+
+        avconfig.codec = avcodec_find_encoder_by_name(avconfig.codec_name.c_str());
+        if (!avconfig.codec)
+        {
+            std::cerr << "cannot init codec " << avconfig.codec_name << std::endl;
+            return 1;
+        }
+
+        avconfig.c = avcodec_alloc_context3(avconfig.codec);
+        if (!avconfig.c)
+        {
+            std::cerr << "cannot init context " << std::endl;
+            return 1;
+        }
+
+        avconfig.pkt = av_packet_alloc();
+        if (!avconfig.pkt)
+        {
+            std::cerr << "cannot init av packet " << std::endl;
+            return 1;
+        }
+
+        avconfig.c->bit_rate = 10000000;
+        avconfig.c->width = width * config.VIDEO_SCALE;
+        avconfig.c->height = height * config.VIDEO_SCALE;
+        avconfig.c->time_base = AVRational{1, 25};
+        avconfig.c->framerate = AVRational{25, 1};
+        avconfig.c->gop_size = 10;
+        avconfig.c->max_b_frames = 1;
+        avconfig.c->pix_fmt = AV_PIX_FMT_YUV420P;
+
+        if (avconfig.codec->id == AV_CODEC_ID_H264)
+        {
+            av_opt_set(avconfig.c->priv_data, "preset", "slow", 0);
+        }
+
+        int ret;
+
+        ret = avcodec_open2(avconfig.c, avconfig.codec, NULL);
+        if (ret < 0)
+        {
+            char errstr[AV_ERROR_MAX_STRING_SIZE];
+            av_strerror(ret, errstr, AV_ERROR_MAX_STRING_SIZE);
+            std::cerr << "Could not open codec: " << errstr << std::endl;
+            return 1;
+        }
+
+        avconfig.f = fopen(avconfig.filename.c_str(), "wb");
+        if (!avconfig.f)
+        {
+            std::cerr << "could not open " << avconfig.filename << std::endl;
+            return 1;
+        }
+
+        avconfig.frame = av_frame_alloc();
+        if (!avconfig.frame)
+        {
+            std::cerr << "could not allocate video frame" << std::endl;
+            return 1;
+        }
+        avconfig.frame->format = avconfig.c->pix_fmt;
+        avconfig.frame->width = avconfig.c->width;
+        avconfig.frame->height = avconfig.c->height;
+
+        ret = av_frame_get_buffer(avconfig.frame, 0);
+        if (ret < 0)
+        {
+            char errstr[AV_ERROR_MAX_STRING_SIZE];
+            av_strerror(ret, errstr, AV_ERROR_MAX_STRING_SIZE);
+            std::cerr << "could not allocate video frame data: " << errstr << std::endl;
+            return 1;
+        }
+
+        avconfig.swc = sws_getContext(
+            width, height, AV_SRC_PF,
+            width * config.VIDEO_SCALE, height * config.VIDEO_SCALE, avconfig.c->pix_fmt,
+            0, 0, 0, 0);
+        if (!avconfig.swc)
+        {
+            std::cerr << "could not allocate sws context" << std::endl;
+            return 1;
+        }
+    }
+
+    return 0;
+}
+
+void SaveFrame(bool flush = false)
+{
+    avconfig.frame->pts = avconfig.i++;
+
+    auto ret = av_frame_make_writable(avconfig.frame);
+    if (ret < 0)
+    {
+        char errstr[AV_ERROR_MAX_STRING_SIZE];
+        av_strerror(ret, errstr, AV_ERROR_MAX_STRING_SIZE);
+        std::cerr << "could not make frame writable: " << errstr << std::endl;
+        return;
+    }
+
+    SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, avconfig.srcWidth, avconfig.srcHeight, 32, SDL_PF);
+    SDL_RenderReadPixels(render, NULL, surface->format->format, surface->pixels, surface->pitch);
+
+    uint8_t *inData[1] = {static_cast<uint8_t*>(surface->pixels)}; // ARGB24 have one plane
+    int inLinesize[1] = {surface->pitch}; // ARGB stride for the single plane
+    ret = sws_scale(
+        avconfig.swc,
+        inData, inLinesize,
+        0, surface->h,
+        avconfig.frame->data, avconfig.frame->linesize);
+    if (ret < 0)
+    {
+        std::cerr << "could not convert frame" << std::endl;
+        return;
+    }
+    SDL_FreeSurface(surface);
+
+    ret = avcodec_send_frame(avconfig.c, flush ? NULL : avconfig.frame);
+    if (ret < 0)
+    {
+        char errstr[AV_ERROR_MAX_STRING_SIZE];
+        av_strerror(ret, errstr, AV_ERROR_MAX_STRING_SIZE);
+        std::cerr << "could not send frame to codec: " << errstr << std::endl;
+        return;
+    }
+
+    while (ret >= 0)
+    {
+        ret = avcodec_receive_packet(avconfig.c, avconfig.pkt);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+        {
+            return;
+        }
+        else if (ret < 0)
+        {
+            char errstr[AV_ERROR_MAX_STRING_SIZE];
+            av_strerror(ret, errstr, AV_ERROR_MAX_STRING_SIZE);
+            std::cerr << "error during encoding: " << errstr << std::endl;
+            return;
+        }
+
+        fwrite(avconfig.pkt->data, 1, avconfig.pkt->size, avconfig.f);
+        av_packet_unref(avconfig.pkt);
+    }
+}
+
+void CleanupAV()
+{
+    SaveFrame(true);
+
+    if (avconfig.swc)
+    {
+        sws_freeContext(avconfig.swc);
+    }
+
+    if (avconfig.frame)
+    {
+        if (avconfig.codec->id == AV_CODEC_ID_MPEG1VIDEO || avconfig.codec->id == AV_CODEC_ID_MPEG2VIDEO)
+        {
+            uint8_t endcode[] = {0, 0, 1, 0xb7};
+            fwrite(endcode, 1, sizeof(endcode), avconfig.f);
+        }
+    }
+
+    if (avconfig.f)
+    {
+        fclose(avconfig.f);
+    }
+
+    if (avconfig.c)
+    {
+        avcodec_free_context(&avconfig.c);
+    }
+
+    if (avconfig.frame)
+    {
+        av_frame_free(&avconfig.frame);
+    }
+
+    if (avconfig.pkt)
+    {
+        av_packet_free(&avconfig.pkt);
+    }
+}
+
+int Render(const size_t &generation, const size_t &iter, const int &frame, const Numeric &time)
 {
     // render only end frame for most generations, but not the first
     if (generation != 0 && generation % config.REALTIME_EVERY_NGENS != 0)
@@ -348,11 +572,11 @@ int Render(size_t generation, size_t iter, int frame, double time)
     }
 
     size_t living = 0;
+    int szx;
+    int szy;
+    SDL_GetWindowSize(window, &szx, &szy);
     // Render population
     {
-        int szx;
-        int szy;
-        SDL_GetWindowSize(window, &szx, &szy);
         const auto offsx = (szx - (config.SCREEN_WIDTH * config.ZOOM)) / 2.0;
         const auto offsy = (szy - (config.SCREEN_HEIGHT * config.ZOOM)) / 2.0;
         for (const auto entity : population.agents)
@@ -404,6 +628,10 @@ int Render(size_t generation, size_t iter, int frame, double time)
     {
         SDL_SetRenderTarget(render, NULL);
         SDL_RenderCopy(render, texture, NULL, NULL);
+        if (config.SAVE_FRAMES)
+        {
+            SaveFrame();
+        }
         SDL_RenderPresent(render);
     }
 
@@ -417,11 +645,26 @@ const auto dt = [](tp begin, tp end)
     return std::chrono::duration_cast<std::chrono::milliseconds>(end - begin).count();
 };
 
+int cleanup(int returnCode)
+{
+    CleanupSDL();
+    CleanupAV();
+    return returnCode;
+}
+
 int main()
 {
     random_seed(config.SEED);
 
     if (InitSDL() != 0)
+    {
+        return cleanup(1);
+    }
+
+    int szx;
+    int szy;
+    SDL_GetWindowSize(window, &szx, &szy);
+    if (InitAV(szx, szy) != 0)
     {
         return cleanup(1);
     }
