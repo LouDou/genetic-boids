@@ -2,88 +2,98 @@
 
 #include "neuron.h"
 
-class Sink_Position_X : public Neuron
+class SummingSink : public Neuron
 {
 public:
-    virtual void write(Agent::SP a, const Numeric &weight)
+    virtual void write(const Numeric &weight)
     {
-        a->moveX(weight * a->velocity_x());
+        m_weight += weight;
+    }
+
+    virtual void reset()
+    {
+        m_weight = 0;
+        m_applied = false;
+    }
+
+    virtual void apply(Agent::SP a)
+    {
+        if (!m_applied)
+        {
+            m_weight = sigmoid(m_weight);
+            _apply(a);
+            m_applied = true;
+        }
+    }
+    virtual void _apply(Agent::SP a) = 0;
+
+protected:
+    Numeric m_weight;
+    bool m_applied;
+};
+
+class Sink_Move : public SummingSink
+{
+public:
+    virtual void _apply(Agent::SP a)
+    {
+        a->move(m_weight * a->velocity());
     };
 };
 
-class Sink_Position_Y : public Neuron
+class Sink_Direction : public SummingSink
 {
 public:
-    virtual void write(Agent::SP a, const Numeric &weight)
+    virtual void _apply(Agent::SP a)
     {
-        a->moveY(weight * a->velocity_y());
+        a->direction(a->direction() + m_weight);
     };
 };
 
-class Sink_Velocity_X : public Neuron
+class Sink_Velocity : public SummingSink
 {
 public:
-    virtual void write(Agent::SP a, const Numeric &weight)
+    virtual void _apply(Agent::SP a)
     {
-        a->velocity_x(a->velocity_x() + weight);
+        a->velocity(a->velocity() + m_weight);
     };
 };
 
-class Sink_Velocity_Y : public Neuron
+class Sink_Red : public SummingSink
 {
 public:
-    virtual void write(Agent::SP a, const Numeric &weight)
-    {
-        a->velocity_y(a->velocity_y() + weight);
-    };
-};
-
-class Sink_Red : public Neuron
-{
-public:
-    virtual void write(Agent::SP a, const Numeric &weight)
+    virtual void _apply(Agent::SP a)
     {
         auto &c = a->colour();
-        c.r = std::abs(255 * weight);
+        c.r = std::abs(255 * m_weight);
     };
 };
 
-class Sink_Green : public Neuron
+class Sink_Green : public SummingSink
 {
 public:
-    virtual void write(Agent::SP a, const Numeric &weight)
+    virtual void _apply(Agent::SP a)
     {
         auto &c = a->colour();
-        c.g = std::abs(255 * weight);
+        c.g = std::abs(255 * m_weight);
     };
 };
 
-class Sink_Blue : public Neuron
+class Sink_Blue : public SummingSink
 {
 public:
-    virtual void write(Agent::SP a, const Numeric &weight)
+    virtual void _apply(Agent::SP a)
     {
         auto &c = a->colour();
-        c.b = std::abs(255 * weight);
+        c.b = std::abs(255 * m_weight);
     };
 };
 
-class Sink_Size : public Neuron
+class Sink_Size : public SummingSink
 {
 public:
-    virtual void write(Agent::SP a, const Numeric &weight)
+    virtual void _apply(Agent::SP a)
     {
-        a->size(std::abs((config.MAX_SIZE * weight)));
+        a->size(std::abs((config.MAX_SIZE * m_weight)));
     };
-};
-
-static const std::vector<Neuron::SP> Sinks{
-    std::make_shared<Sink_Position_X>(),
-    std::make_shared<Sink_Position_Y>(),
-    std::make_shared<Sink_Velocity_X>(),
-    std::make_shared<Sink_Velocity_Y>(),
-    std::make_shared<Sink_Red>(),
-    std::make_shared<Sink_Green>(),
-    std::make_shared<Sink_Blue>(),
-    std::make_shared<Sink_Size>(),
 };

@@ -27,6 +27,16 @@ public:
 
     Agent(Agent::SP other);
 
+    size_t &age()
+    {
+        return m_age;
+    }
+
+    void age(const size_t &next)
+    {
+        m_age = next;
+    }
+
     Numeric &size()
     {
         return m_size;
@@ -40,8 +50,7 @@ public:
     }
 
     void position(const Position &next);
-    void moveX(int delta);
-    void moveY(int delta);
+    void move(int delta);
 
     Colour &colour()
     {
@@ -50,25 +59,26 @@ public:
 
     void colour(const Colour &next);
 
-    Numeric &velocity_x()
+    Numeric &direction()
     {
-        return m_velocity_x;
+        return m_direction;
     }
 
-    void velocity_x(const Numeric &next);
+    void direction(const Numeric &next);
 
-    Numeric &velocity_y()
+    Numeric &velocity()
     {
-        return m_velocity_y;
+        return m_velocity;
     }
 
-    void velocity_y(const Numeric &next);
+    void velocity(const Numeric &next);
 
 private:
+    size_t m_age;
     Numeric m_size;
     Position m_pos;
     Colour m_col;
 
-    Numeric m_velocity_x;
-    Numeric m_velocity_y;
+    Numeric m_direction;
+    Numeric m_velocity;
 };

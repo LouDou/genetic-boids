@@ -19,7 +19,7 @@ public:
     {
         return m_val;
     };
-    virtual void write(Agent::SP a, const Numeric &weight)
+    virtual void write(const Numeric &weight)
     {
         m_val += weight;
     };
@@ -37,9 +37,9 @@ class SummingSigmoidMemoryNeuron : public Neuron
 public:
     virtual const Numeric read(Agent::SP a, const Numeric &weight)
     {
-        return (m_val / std::sqrt(1 + (m_val * m_val)));
+        return sigmoid(m_val);
     };
-    virtual void write(Agent::SP a, const Numeric &weight)
+    virtual void write(const Numeric &weight)
     {
         m_val += weight;
     };
@@ -59,7 +59,7 @@ public:
     {
         return m_val;
     };
-    virtual void write(Agent::SP a, const Numeric &weight)
+    virtual void write(const Numeric &weight)
     {
         m_val = std::abs(weight) > std::abs(m_val) ? weight : m_val;
     };
@@ -98,7 +98,7 @@ public:
         return m_brain;
     }
 
-    void update();
+    void update(const size_t &iter);
 
 private:
     // Update strategies
@@ -107,9 +107,10 @@ private:
     void update_Threshold();
     void update_Every();
 
-    // Memory management
+    // Neuron management
 
-    void resetMemory();
+    void resetNeurons();
+    void applySinkValues();
 
     // Brain strategies
 
@@ -120,5 +121,7 @@ private:
 
 private:
     Brain m_brain;
+    std::vector<Neuron::SP> m_sources;
+    std::vector<Neuron::SP> m_sinks;
     std::vector<Neuron::SP> m_memory;
 };

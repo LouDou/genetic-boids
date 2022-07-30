@@ -83,8 +83,8 @@ void InitialCondition(Agent::SP a)
     a->size(config.MIN_SIZE + (randf() * (config.MAX_SIZE - config.MIN_SIZE)));
     a->position(RandomPosition(config.SCREEN_WIDTH, config.SCREEN_HEIGHT));
     a->colour(RandomColour());
-    a->velocity_x(bipolarrandf() * config.MAX_VELOCITY);
-    a->velocity_y(bipolarrandf() * config.MAX_VELOCITY);
+    a->direction(randf() * TWOPI);
+    a->velocity(bipolarrandf() * config.MAX_VELOCITY);
 }
 
 int InitPopulation()
@@ -316,13 +316,13 @@ int UpdateKdTree()
 }
 #endif
 
-int UpdateAgents(double time)
+int UpdateAgents(const size_t &iter)
 {
 #pragma omp parallel for
     for (auto &entity : population.agents)
     {
         auto a = std::static_pointer_cast<NeuralAgent>(entity);
-        a->update();
+        a->update(iter);
     }
 
     return 0;
@@ -419,10 +419,7 @@ const auto dt = [](tp begin, tp end)
 
 int main()
 {
-    std::cout << "Sources size = " << Sources.size() << std::endl;
-    std::cout << "Sinks size = " << Sinks.size() << std::endl;
-
-    random_seed(std::chrono::system_clock::now().time_since_epoch().count());
+    random_seed(config.SEED);
 
     if (InitSDL() != 0)
     {
@@ -451,7 +448,7 @@ int main()
                 return cleanup(1);
             }
 
-            if (UpdateAgents(t) != 0)
+            if (UpdateAgents(i) != 0)
             {
                 std::cerr << "error updating entt" << std::endl;
                 return cleanup(1);

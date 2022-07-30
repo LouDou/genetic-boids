@@ -93,9 +93,7 @@ const bool LiveStrategy_TLTenth(Agent::SP a)
 
 const bool LiveStrategy_LowVelocity(Agent::SP a)
 {
-    const auto vx = a->velocity_x();
-    const auto vy = a->velocity_y();
-    return std::sqrt(vx * vx + vy * vy) < 5.0;
+    return a->velocity() < (config.MAX_VELOCITY / 10.0);
 }
 
 const bool LiveStrategy_TLCircle(Agent::SP a)
@@ -143,9 +141,7 @@ const bool LiveStrategy_Corners(Agent::SP a)
 
 const bool LiveStrategy_HasVelocity(Agent::SP a)
 {
-    const auto vx = a->velocity_x();
-    const auto vy = a->velocity_y();
-    return std::sqrt(vx * vx + vy * vy) > 0.01f;
+    return a->velocity() > 0.001f;
 }
 
 const bool LiveStrategy_HorizTenths(Agent::SP a)
@@ -206,11 +202,5 @@ const bool LiveStrategy_StuckOnBorder(Agent::SP a)
 
 const bool LiveStrategy(Agent::SP a)
 {
-    return (
-        LiveStrategy_BottomCorners(a) && (LiveStrategy_IsGreen(a) || LiveStrategy_IsRed(a)) ||
-        LiveStrategy_TopCorners(a) && (LiveStrategy_IsRed(a) || LiveStrategy_IsBlue(a)));
+    return LiveStrategy_CentreTenthBox(a) && LiveStrategy_IsSmall(a) && LiveStrategy_IsRed(a);
 }
-
-// static const std::unordered_map<std::string, LiveCondition> LiveConditions = {
-//     {"main", LiveStrategy}
-// };

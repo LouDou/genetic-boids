@@ -3,6 +3,15 @@
 #include "neuron.h"
 #include "conditions.h"
 
+class Source_Age : public Neuron
+{
+public:
+    virtual const Numeric read(Agent::SP a, const Numeric &weight)
+    {
+        return static_cast<Numeric>(a->age()) / config.GEN_ITERS;
+    };
+};
+
 class Source_West : public Neuron
 {
 public:
@@ -39,21 +48,21 @@ public:
     };
 };
 
-class Source_Velocity_X : public Neuron
+class Source_Direction : public Neuron
 {
 public:
     virtual const Numeric read(Agent::SP a, const Numeric &weight)
     {
-        return a->velocity_x() / config.MAX_VELOCITY;
+        return a->direction() / TWOPI;
     };
 };
 
-class Source_Velocity_Y : public Neuron
+class Source_Velocity : public Neuron
 {
 public:
     virtual const Numeric read(Agent::SP a, const Numeric &weight)
     {
-        return a->velocity_y() / config.MAX_VELOCITY;
+        return a->velocity() / config.MAX_VELOCITY;
     };
 };
 
@@ -125,21 +134,3 @@ public:
     };
 };
 #endif
-
-static const std::vector<Neuron::SP> Sources{
-    std::make_shared<Source_West>(),
-    std::make_shared<Source_East>(),
-    std::make_shared<Source_North>(),
-    std::make_shared<Source_South>(),
-    std::make_shared<Source_Velocity_X>(),
-    std::make_shared<Source_Velocity_Y>(),
-    // std::make_shared<Source_Goal_Reached>(),
-    // std::make_shared<Source_Out_of_Bounds>(),
-    std::make_shared<Source_Red>(),
-    std::make_shared<Source_Green>(),
-    std::make_shared<Source_Blue>(),
-    std::make_shared<Source_Size>(),
-#if USE_KDTREE
-    std::make_shared<Source_NumNeighbours>(),
-#endif
-};

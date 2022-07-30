@@ -19,10 +19,12 @@ NeuralAgent::NeuralAgent(const NeuralAgent::SP other) : Agent(other)
 
 // Update strategies
 
-void NeuralAgent::update()
+void NeuralAgent::update(const size_t &iter)
 {
-    resetMemory();
+    age(iter);
+    resetNeurons();
     update_Every();
+    applySinkValues();
 }
 
 void NeuralAgent::update_Max()
@@ -47,8 +49,7 @@ void NeuralAgent::update_Max()
     if (maxidx > -1 && maxidx < m_brain.size())
     {
         const auto [src, w, snk] = m_brain[maxidx];
-        // activate sink
-        snk->write(shared_from_this(), w);
+        snk->write(w);
     }
 }
 
@@ -62,7 +63,7 @@ void NeuralAgent::update_Threshold()
         // activate above threshold
         if (std::abs(val) > config.NEURAL_THRESHOLD)
         {
-            snk->write(shared_from_this(), val);
+            snk->write(val);
         }
     }
 }
@@ -74,17 +75,28 @@ void NeuralAgent::update_Every()
     {
         const auto &[src, w, snk] = m_brain[i];
         const auto val = src->read(shared_from_this(), w) * w;
-        snk->write(shared_from_this(), val);
+        snk->write(val);
     }
 }
 
 // Memory management
 
-void NeuralAgent::resetMemory()
+void NeuralAgent::resetNeurons()
 {
-    for (auto &m : m_memory)
+    for (size_t i = 0; i < m_brain.size(); ++i)
     {
-        m->reset();
+        const auto &[src, w, snk] = m_brain[i];
+        src->reset();
+        snk->reset();
+    }
+}
+
+void NeuralAgent::applySinkValues()
+{
+    for (size_t i = 0; i < m_brain.size(); ++i)
+    {
+        const auto &[src, w, snk] = m_brain[i];
+        snk->apply(shared_from_this());
     }
 }
 
@@ -92,15 +104,12 @@ void NeuralAgent::resetMemory()
 
 void NeuralAgent::setupBrain_no_memory()
 {
-    m_brain.clear();
-    m_memory.clear();
-
-    for (size_t i = 0; i < Sources.size(); ++i)
+    for (size_t i = 0; i < m_sources.size(); ++i)
     {
-        auto src = Sources[i];
-        for (size_t j = 0; j < Sinks.size(); ++j)
+        auto src = m_sources[i];
+        for (size_t j = 0; j < m_sinks.size(); ++j)
         {
-            auto snk = Sinks[j];
+            auto snk = m_sinks[j];
             BrainConnection c(src, 0.f, snk);
             m_brain.push_back(c);
         }
@@ -109,9 +118,6 @@ void NeuralAgent::setupBrain_no_memory()
 
 void NeuralAgent::setupBrain_layered_memory()
 {
-    m_brain.clear();
-    m_memory.clear();
-
     for (size_t i = 0; i < config.NUM_MEMORY_LAYERS * config.NUM_MEMORY_PER_LAYER; ++i)
     {
         m_memory.push_back(std::make_shared<SummingSigmoidMemoryNeuron>());
@@ -119,9 +125,9 @@ void NeuralAgent::setupBrain_layered_memory()
     // std::cout << " total mem neurons " << m_memory.size() << std::endl;
 
     // connect every source to every memory neuron in the first layer
-    for (size_t i = 0; i < Sources.size(); ++i)
+    for (size_t i = 0; i < m_sources.size(); ++i)
     {
-        auto src = Sources[i];
+        auto src = m_sources[i];
         for (size_t j = 0; j < config.NUM_MEMORY_PER_LAYER; ++j)
         {
             auto m = m_memory[j];
@@ -156,9 +162,9 @@ void NeuralAgent::setupBrain_layered_memory()
     {
         const auto im = i + ((config.NUM_MEMORY_LAYERS - 1) * config.NUM_MEMORY_PER_LAYER);
         auto m = m_memory[im];
-        for (size_t j = 0; j < Sinks.size(); ++j)
+        for (size_t j = 0; j < m_sinks.size(); ++j)
         {
-            auto snk = Sinks[j];
+            auto snk = m_sinks[j];
             // std::cout << " connect mem " << im << " to sink " << j << std::endl;
             BrainConnection c(m, 0.f, snk);
             m_brain.push_back(c);
@@ -168,9 +174,6 @@ void NeuralAgent::setupBrain_layered_memory()
 
 void NeuralAgent::setupBrain_fully_connected_memory()
 {
-    m_brain.clear();
-    m_memory.clear();
-
     for (size_t i = 0; i < config.NUM_MEMORY_LAYERS * config.NUM_MEMORY_PER_LAYER; ++i)
     {
         m_memory.push_back(std::make_shared<SummingSigmoidMemoryNeuron>());
@@ -180,13 +183,13 @@ void NeuralAgent::setupBrain_fully_connected_memory()
     // we want to perform all memory writes
     // before any memory reads
 
-    for (size_t i = 0; i < Sources.size(); ++i)
+    for (size_t i = 0; i < m_sources.size(); ++i)
     {
-        auto src = Sources[i];
+        auto src = m_sources[i];
         // connect all sources and sinks
-        for (size_t j = 0; j < Sinks.size(); ++j)
+        for (size_t j = 0; j < m_sinks.size(); ++j)
         {
-            auto snk = Sinks[j];
+            auto snk = m_sinks[j];
             BrainConnection c(src, 0.f, snk);
             m_brain.push_back(c);
         }
@@ -217,9 +220,9 @@ void NeuralAgent::setupBrain_fully_connected_memory()
     for (size_t i = 0; i < m_memory.size(); ++i)
     {
         auto m = m_memory[i];
-        for (size_t j = 0; j < Sinks.size(); ++j)
+        for (size_t j = 0; j < m_sinks.size(); ++j)
         {
-            auto snk = Sinks[j];
+            auto snk = m_sinks[j];
             BrainConnection c(m, 0.f, snk);
             m_brain.push_back(c);
         }
@@ -228,6 +231,41 @@ void NeuralAgent::setupBrain_fully_connected_memory()
 
 void NeuralAgent::setupBrain()
 {
+    m_brain.clear();
+    m_sources.clear();
+    m_sinks.clear();
+    m_memory.clear();
+
+    // Create sources and sinks
+    std::vector<Neuron::SP> sources{
+        std::make_shared<Source_West>(),
+        std::make_shared<Source_East>(),
+        std::make_shared<Source_North>(),
+        std::make_shared<Source_South>(),
+        std::make_shared<Source_Direction>(),
+        std::make_shared<Source_Velocity>(),
+        // std::make_shared<Source_Goal_Reached>(),
+        // std::make_shared<Source_Out_of_Bounds>(),
+        std::make_shared<Source_Red>(),
+        std::make_shared<Source_Green>(),
+        std::make_shared<Source_Blue>(),
+        std::make_shared<Source_Size>(),
+        // #if USE_KDTREE
+        //             std::make_shared<Source_NumNeighbours>(),
+        // #endif
+    };
+    m_sources.swap(sources);
+    std::vector<Neuron::SP> sinks{
+        std::make_shared<Sink_Move>(),
+        std::make_shared<Sink_Direction>(),
+        std::make_shared<Sink_Velocity>(),
+        std::make_shared<Sink_Red>(),
+        std::make_shared<Sink_Green>(),
+        std::make_shared<Sink_Blue>(),
+        std::make_shared<Sink_Size>(),
+    };
+    m_sinks.swap(sinks);
+
     // setupBrain_no_memory();
     setupBrain_layered_memory();
     // setupBrain_fully_connected_memory();

@@ -1,3 +1,5 @@
+#include <cmath>
+
 #include "agent.h"
 
 Agent::Agent(Agent::SP other)
@@ -5,8 +7,7 @@ Agent::Agent(Agent::SP other)
     size(other->size());
     position(other->position());
     colour(other->colour());
-    velocity_x(other->velocity_x());
-    velocity_y(other->velocity_y());
+    velocity(other->velocity());
 }
 
 void Agent::size(Numeric next)
@@ -20,14 +21,10 @@ void Agent::position(const Position &next)
     m_pos.y = next.y;
 }
 
-void Agent::moveX(int delta)
+void Agent::move(int delta)
 {
-    m_pos.x += delta;
-}
-
-void Agent::moveY(int delta)
-{
-    m_pos.y += delta;
+    m_pos.x += delta * std::sin(m_direction);
+    m_pos.y += delta * std::cos(m_direction);
 }
 
 void Agent::colour(const Colour &next)
@@ -37,28 +34,20 @@ void Agent::colour(const Colour &next)
     m_col.b = next.b;
 }
 
-void Agent::velocity_x(const Numeric &next)
+void Agent::direction(const Numeric &next)
 {
-    m_velocity_x = next;
-    if (m_velocity_x < -config.MAX_VELOCITY)
-    {
-        m_velocity_x = -config.MAX_VELOCITY;
-    }
-    if (m_velocity_x > config.MAX_VELOCITY)
-    {
-        m_velocity_x = config.MAX_VELOCITY;
-    }
+    m_direction = std::fmod(next, TWOPI);
 }
 
-void Agent::velocity_y(const Numeric &next)
+void Agent::velocity(const Numeric &next)
 {
-    m_velocity_y = next;
-    if (m_velocity_y < -config.MAX_VELOCITY)
+    m_velocity = next;
+    if (m_velocity < -config.MAX_VELOCITY)
     {
-        m_velocity_y = -config.MAX_VELOCITY;
+        m_velocity = -config.MAX_VELOCITY;
     }
-    if (m_velocity_y > config.MAX_VELOCITY)
+    if (m_velocity > config.MAX_VELOCITY)
     {
-        m_velocity_y = config.MAX_VELOCITY;
+        m_velocity = config.MAX_VELOCITY;
     }
 }

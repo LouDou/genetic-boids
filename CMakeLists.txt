@@ -9,6 +9,7 @@ add_executable(boids
     src/agent.cpp
     src/conditions.cpp
     src/neuralagent.cpp
+    src/neuron.cpp
     src/random.cpp
     src/main.cpp
 )
