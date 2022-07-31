@@ -8,6 +8,7 @@ class Source_Age : public Neuron
 public:
     virtual const Numeric read(Agent::SP a, const Numeric &weight)
     {
+        const auto &config = getConfig();
         return static_cast<Numeric>(a->age()) / config.GEN_ITERS;
     };
 };
@@ -17,6 +18,7 @@ class Source_West : public Neuron
 public:
     virtual const Numeric read(Agent::SP a, const Numeric &weight)
     {
+        const auto &config = getConfig();
         return (config.SCREEN_WIDTH - a->position().x) / config.SCREEN_WIDTH;
     };
 };
@@ -26,6 +28,7 @@ class Source_East : public Neuron
 public:
     virtual const Numeric read(Agent::SP a, const Numeric &weight)
     {
+        const auto &config = getConfig();
         return 1 - ((config.SCREEN_WIDTH - a->position().x) / config.SCREEN_WIDTH);
     };
 };
@@ -35,6 +38,7 @@ class Source_North : public Neuron
 public:
     virtual const Numeric read(Agent::SP a, const Numeric &weight)
     {
+        const auto &config = getConfig();
         return (config.SCREEN_HEIGHT - a->position().y) / config.SCREEN_HEIGHT;
     };
 };
@@ -44,6 +48,7 @@ class Source_South : public Neuron
 public:
     virtual const Numeric read(Agent::SP a, const Numeric &weight)
     {
+        const auto &config = getConfig();
         return 1 - ((config.SCREEN_HEIGHT - a->position().y) / config.SCREEN_HEIGHT);
     };
 };
@@ -62,6 +67,7 @@ class Source_Velocity : public Neuron
 public:
     virtual const Numeric read(Agent::SP a, const Numeric &weight)
     {
+        const auto &config = getConfig();
         return a->velocity() / config.MAX_VELOCITY;
     };
 };
@@ -116,6 +122,7 @@ class Source_Size : public Neuron
 public:
     virtual const Numeric read(Agent::SP a, const Numeric &weight)
     {
+        const auto &config = getConfig();
         return a->size() / config.MAX_SIZE;
     };
 };

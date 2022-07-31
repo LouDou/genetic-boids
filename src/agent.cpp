@@ -12,6 +12,7 @@ Agent::Agent(Agent::SP other)
 
 void Agent::size(Numeric next)
 {
+    const auto &config = getConfig();
     m_size = std::max(config.MIN_SIZE, std::min(config.MAX_SIZE, next));
 }
 
@@ -41,6 +42,7 @@ void Agent::direction(const Numeric &next)
 
 void Agent::velocity(const Numeric &next)
 {
+    const auto &config = getConfig();
     m_velocity = next;
     if (m_velocity < -config.MAX_VELOCITY)
     {

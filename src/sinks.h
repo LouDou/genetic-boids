@@ -94,6 +94,7 @@ class Sink_Size : public SummingSink
 public:
     virtual void _apply(Agent::SP a)
     {
+        const auto &config = getConfig();
         a->size(std::abs((config.MAX_SIZE * m_weight)));
     };
 };

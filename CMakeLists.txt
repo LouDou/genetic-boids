@@ -37,3 +37,6 @@ find_package(FFMPEG REQUIRED)
 target_include_directories(boids PRIVATE ${FFMPEG_INCLUDE_DIRS})
 target_link_directories(boids PRIVATE ${FFMPEG_LIBRARY_DIRS})
 target_link_libraries(boids PRIVATE ${FFMPEG_LIBRARIES})
+
+find_package(argparse CONFIG REQUIRED)
+target_link_libraries(boids PRIVATE argparse::argparse)

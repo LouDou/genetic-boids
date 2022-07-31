@@ -48,6 +48,8 @@ std::string FindFont()
 
 int InitSDL()
 {
+    const auto &config = getConfig();
+
     if (SDL_Init(SDL_INIT_VIDEO) != 0)
     {
         std::cerr << "could not init sdl2: " << SDL_GetError() << std::endl;
@@ -143,6 +145,8 @@ void CleanupSDL()
 
 int Render(std::vector<Agent::SP> agents, const size_t &generation, const size_t &iter, const int &frame, const Numeric &time, const size_t &st)
 {
+    const auto &config = getConfig();
+
     // render only end frame for most generations, but not the first
     if (generation != 0 && generation % config.REALTIME_EVERY_NGENS != 0)
     {

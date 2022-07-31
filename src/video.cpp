@@ -8,6 +8,8 @@ AVConfig avconfig;
 
 int InitAV(const size_t &width, const size_t &height)
 {
+    const auto &config = getConfig();
+
     if (config.SAVE_FRAMES)
     {
         avconfig.srcWidth = width;
@@ -165,7 +167,10 @@ void SaveFrame(uint8_t *pixels, const int &pitch)
 
 void CleanupAV()
 {
-    SaveFrame(nullptr, 0);
+    if (avconfig.frame)
+    {
+        SaveFrame(nullptr, 0);
+    }
 
     if (avconfig.swc)
     {

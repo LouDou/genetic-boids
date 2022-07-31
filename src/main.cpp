@@ -3,9 +3,18 @@
 #include <iostream>
 #include <sstream>
 
+#include <argparse/argparse.hpp>
 #include <nanoflann.hpp>
 
 #include "config.h"
+
+Config config;
+
+const Config &getConfig()
+{
+    return config;
+}
+
 #include "agent.h"
 #include "conditions.h"
 #include "neuralagent.h"
@@ -207,8 +216,164 @@ int cleanup(int returnCode)
     return returnCode;
 }
 
-int main()
+int ParseArgs(int argc, char *argv[])
 {
+    argparse::ArgumentParser program("boids", "1.0", argparse::default_arguments::help);
+
+    const auto AsLong = [](const std::string &v)
+    { return std::stol(v); };
+
+    const auto AsInt = [](const std::string &v)
+    { return std::stoi(v); };
+
+    const auto AsFloat = [](const std::string &v)
+    { return std::stof(v); };
+
+    program.add_argument("-s", "--seed")
+        .default_value(std::chrono::system_clock::now().time_since_epoch().count())
+        .action(AsLong)
+        .help("Random seed");
+
+    program.add_argument("-n", "--num-boids")
+        .default_value(1000)
+        .action(AsInt)
+        .help("Number of boid Agents to simulate");
+    program.add_argument("-m", "--mutation")
+        .default_value(0.001f)
+        .action(AsFloat)
+        .help("Parameter mutation factor");
+    program.add_argument("-t", "--neural-threshold")
+        .default_value(0.12f)
+        .action(AsFloat)
+        .help("For Threshold update strategy; neuron activation threshold weight");
+    program.add_argument("-k", "--memory-layer-size")
+        .default_value(4L)
+        .action(AsLong)
+        .help("Layered memory type: Number of neurons per layer");
+    program.add_argument("-l", "--memory-layers")
+        .default_value(2L)
+        .action(AsLong)
+        .help("Layered memory type: Number of neuron layers");
+
+    program.add_argument("-b", "--neuron-bounded-weights")
+        .default_value(false)
+        .implicit_value(true)
+        .help("Clamp neuron output weight values");
+    program.add_argument("-x", "--neuron-max-weight")
+        .default_value(2.0f)
+        .action(AsFloat)
+        .help("Bounded weights: Maximum neuron output weight magnitude");
+
+    program.add_argument("-p", "--agent-min-size")
+        .default_value(5.0f)
+        .action(AsFloat)
+        .help("Agent properties: Minimum size");
+    program.add_argument("-q", "--agent-max-size")
+        .default_value(20.0f)
+        .action(AsFloat)
+        .help("Agent properties: Maximum size");
+    program.add_argument("-r", "--agent-max-velocity")
+        .default_value(24.0f)
+        .action(AsFloat)
+        .help("Agent properties: Maximum velocity magnitude");
+
+    program.add_argument("-w", "--simulation-bound-width")
+        .default_value(1280)
+        .action(AsInt)
+        .help("Simulation: Width of \"in bounds\" area");
+    program.add_argument("-h", "--simulation-bound-height")
+        .default_value(720)
+        .action(AsInt)
+        .help("Simulation: Height of \"in bounds\" area");
+    program.add_argument("-g", "--simulation-generations")
+        .default_value(10000L)
+        .action(AsLong)
+        .help("Simulation: Maximum number of generations");
+    program.add_argument("-i", "--simulation-iterations")
+        .default_value(400L)
+        .action(AsLong)
+        .help("Simulation: Iterations per generation");
+
+    program.add_argument("-z", "--render-zoom-factor")
+        .default_value(1.0f)
+        .action(AsFloat)
+        .help("Rendering: Zoom factor");
+    program.add_argument("-u", "--render-interval")
+        .default_value(50)
+        .action(AsInt)
+        .help("Rendering: Render all iterations generation interval");
+    program.add_argument("-v", "--render-save-video")
+        .default_value(false)
+        .implicit_value(true)
+        .help("Rendering: Save video of simulation");
+    program.add_argument("-d", "--render-video-scale")
+        .default_value(1.0f)
+        .action(AsFloat)
+        .help("Rendering: Output video scale factor");
+
+    try
+    {
+        program.parse_args(argc, argv);
+    }
+    catch (const std::runtime_error &err)
+    {
+        std::cerr << err.what() << std::endl;
+        std::cerr << program;
+        exit(0);
+    }
+
+    config.SEED = program.get<long>("-s");
+    config.NUMBOIDS = program.get<int>("-n");
+    config.MUTATION = program.get<float>("-m");
+    config.NEURAL_THRESHOLD = program.get<float>("-t");
+    config.NUM_MEMORY_PER_LAYER = program.get<long>("-k");
+    config.NUM_MEMORY_LAYERS = program.get<long>("-l");
+    config.BOUNDED_WEIGHTS = program.get<bool>("-b");
+    config.MAX_WEIGHT = program.get<float>("-x");
+    config.MIN_SIZE = program.get<float>("-p");
+    config.MAX_SIZE = program.get<float>("-q");
+    config.MAX_VELOCITY = program.get<float>("-r");
+    config.SCREEN_WIDTH = program.get<int>("-w");
+    config.SCREEN_HEIGHT = program.get<int>("-h");
+    config.MAX_GENS = program.get<long>("-g");
+    config.GEN_ITERS = program.get<long>("-i");
+    config.ZOOM = program.get<float>("-z");
+    config.REALTIME_EVERY_NGENS = program.get<int>("-u");
+    config.SAVE_FRAMES = program.get<bool>("-v");
+    config.VIDEO_SCALE = program.get<float>("-d");
+
+    std::cout
+        << "Config:" << std::endl
+        << " SEED=" << config.SEED << std::endl
+        << " NUMBOIDS=" << config.NUMBOIDS << std::endl
+        << " MUTATION=" << config.MUTATION << std::endl
+        << " NEURAL_THRESHOLD=" << config.NEURAL_THRESHOLD << std::endl
+        << " NUM_MEMORY_PER_LAYER=" << config.NUM_MEMORY_PER_LAYER << std::endl
+        << " NUM_MEMORY_LAYERS=" << config.NUM_MEMORY_LAYERS << std::endl
+        << " BOUNDED_WEIGHTS=" << config.BOUNDED_WEIGHTS << std::endl
+        << " MAX_WEIGHT=" << config.MAX_WEIGHT << std::endl
+        << " MIN_SIZE=" << config.MIN_SIZE << std::endl
+        << " MAX_SIZE=" << config.MAX_SIZE << std::endl
+        << " MAX_VELOCITY=" << config.MAX_VELOCITY << std::endl
+        << " SCREEN_WIDTH=" << config.SCREEN_WIDTH << std::endl
+        << " SCREEN_HEIGHT=" << config.SCREEN_HEIGHT << std::endl
+        << " MAX_GENS=" << config.MAX_GENS << std::endl
+        << " GEN_ITERS=" << config.GEN_ITERS << std::endl
+        << " ZOOM=" << config.ZOOM << std::endl
+        << " REALTIME_EVERY_NGENS=" << config.REALTIME_EVERY_NGENS << std::endl
+        << " SAVE_FRAMES=" << config.SAVE_FRAMES << std::endl
+        << " VIDEO_SCALE=" << config.VIDEO_SCALE << std::endl;
+
+    return 0;
+}
+
+int main(int argc, char *argv[])
+{
+    if (ParseArgs(argc, argv) != 0)
+    {
+        return cleanup(1);
+    }
+
     random_seed(config.SEED);
 
     if (InitSDL() != 0)

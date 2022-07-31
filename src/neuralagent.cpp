@@ -55,6 +55,7 @@ void NeuralAgent::update_Max()
 
 void NeuralAgent::update_Threshold()
 {
+    const auto &config = getConfig();
     // calculate neuron activation values
     for (size_t i = 0; i < m_brain.size(); ++i)
     {
@@ -118,6 +119,7 @@ void NeuralAgent::setupBrain_no_memory()
 
 void NeuralAgent::setupBrain_layered_memory()
 {
+    const auto &config = getConfig();
     for (size_t i = 0; i < config.NUM_MEMORY_LAYERS * config.NUM_MEMORY_PER_LAYER; ++i)
     {
         m_memory.push_back(std::make_shared<SummingSigmoidMemoryNeuron>());
@@ -174,6 +176,7 @@ void NeuralAgent::setupBrain_layered_memory()
 
 void NeuralAgent::setupBrain_fully_connected_memory()
 {
+    const auto &config = getConfig();
     for (size_t i = 0; i < config.NUM_MEMORY_LAYERS * config.NUM_MEMORY_PER_LAYER; ++i)
     {
         m_memory.push_back(std::make_shared<SummingSigmoidMemoryNeuron>());
