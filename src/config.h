@@ -4,25 +4,36 @@
 #include <cstddef>
 #include <inttypes.h>
 
+#include <SDL2/SDL.h>
+
+extern "C"
+{
+#include <libavutil/opt.h>
+}
+
 #define USE_KDTREE 0
 
 using Numeric = double;
 
 constexpr Numeric TWOPI = 2 * 3.14159;
 
+// These are defined here because they have to match
+constexpr auto SDL_PF = SDL_PIXELFORMAT_RGB24;
+constexpr auto AV_SRC_PF = AV_PIX_FMT_RGB24;
+
 static const struct Config
 {
     const int64_t SEED = std::chrono::system_clock::now().time_since_epoch().count();
 
-    const size_t SCREEN_WIDTH = 750;
-    const size_t SCREEN_HEIGHT = 750;
+    const int SCREEN_WIDTH = 1280;
+    const int SCREEN_HEIGHT = 720;
     const Numeric ZOOM = 0.85;
 
     const size_t NUMBOIDS = 5000;
 
-    const Numeric MUTATION = 0.0012;
+    const Numeric MUTATION = 0.005;
     const Numeric NEURAL_THRESHOLD = 0.12; // only for update_Threshold strategy
-    const size_t NUM_MEMORY_PER_LAYER = 5;
+    const size_t NUM_MEMORY_PER_LAYER = 4;
     const size_t NUM_MEMORY_LAYERS = 2;
 
     const bool BOUNDED_WEIGHTS = true;

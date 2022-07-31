@@ -11,6 +11,8 @@ add_executable(boids
     src/neuralagent.cpp
     src/neuron.cpp
     src/random.cpp
+    src/ui.cpp
+    src/video.cpp
     src/main.cpp
 )
 

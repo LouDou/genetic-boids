@@ -202,5 +202,9 @@ const bool LiveStrategy_StuckOnBorder(Agent::SP a)
 
 const bool LiveStrategy(Agent::SP a)
 {
-    return LiveStrategy_CentreTenthBox(a) && LiveStrategy_IsSmall(a) && LiveStrategy_IsRed(a);
+    return LiveStrategy_IsSmall(a) &&(
+        (LiveStrategy_TopCorners(a) && LiveStrategy_IsRed(a))
+        ||
+        (LiveStrategy_BottomCorners(a) && LiveStrategy_IsGreen(a))
+    );
 }
