@@ -100,6 +100,26 @@ public:
 
     void update(const size_t &iter);
 
+    void updateType(const NeuralUpdateType &next)
+    {
+        m_updateType = next;
+    }
+
+    const NeuralUpdateType &updateType() const
+    {
+        return m_updateType;
+    }
+
+    void brainType(const NeuralBrainType &next)
+    {
+        m_brainType = next;
+    }
+
+    const NeuralBrainType &brainType() const
+    {
+        return m_brainType;
+    }
+
 private:
     // Update strategies
 
@@ -121,6 +141,8 @@ private:
 
 private:
     Brain m_brain;
+    NeuralUpdateType m_updateType = NeuralUpdateType::EVERY;
+    NeuralBrainType m_brainType = NeuralBrainType::LAYERED;
     std::vector<Neuron::SP> m_sources;
     std::vector<Neuron::SP> m_sinks;
     std::vector<Neuron::SP> m_memory;

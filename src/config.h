@@ -23,6 +23,20 @@ constexpr Numeric TWOPI = 2 * 3.14159;
 constexpr auto SDL_PF = SDL_PIXELFORMAT_RGB24;
 constexpr auto AV_SRC_PF = AV_PIX_FMT_RGB24;
 
+enum class NeuralUpdateType
+{
+    MAX,
+    THRESHOLD,
+    EVERY,
+};
+
+enum class NeuralBrainType
+{
+    NO_MEMORY,
+    LAYERED,
+    FULLY_CONNECTED,
+};
+
 struct Config
 {
     int64_t SEED = 0;
@@ -34,7 +48,6 @@ struct Config
     size_t NUMBOIDS = 0;
 
     Numeric MUTATION = 0.0;
-    Numeric NEURAL_THRESHOLD = 0.0; // only for update_Threshold strategy
     size_t NUM_MEMORY_PER_LAYER = 0;
     size_t NUM_MEMORY_LAYERS = 0;
     std::vector<std::string> NEURON_SOURCES = {
@@ -61,6 +74,9 @@ struct Config
         "blue",
         "size",
     };
+    Numeric NEURAL_THRESHOLD = 0.0; // only for Threshold update strategy
+    NeuralUpdateType NEURAL_UPDATE_TYPE = NeuralUpdateType::EVERY;
+    NeuralBrainType NEURAL_BRAIN_TYPE = NeuralBrainType::LAYERED;
 
     bool BOUNDED_WEIGHTS = false;
     Numeric MAX_WEIGHT = 0.0;

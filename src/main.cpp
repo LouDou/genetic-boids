@@ -159,6 +159,9 @@ int InitPopulation()
         population.agents.push_back(a);
         InitialCondition(a);
 
+        a->updateType(config.NEURAL_UPDATE_TYPE);
+        a->brainType(config.NEURAL_BRAIN_TYPE);
+
         // randomize brain weights
         auto &b = a->brain();
         for (size_t j = 0; j < b.size(); ++j)
@@ -325,6 +328,32 @@ int ParseArgs(int argc, char *argv[])
     program.add_argument("--neuron-sinks")
         .nargs(1, 7)
         .help("Neurons: Neural sinks. Choose from: move, direction, velocity, red, green, blue, size");
+    program.add_argument("--neuron-update-type")
+        .default_value(std::string("every"))
+        .action(
+            [](const std::string &value)
+            {
+                static const std::vector<std::string> choices = {"max", "threshold", "every"};
+                if (std::find(choices.begin(), choices.end(), value) != choices.end())
+                {
+                    return value;
+                }
+                return std::string{"every"};
+            })
+        .help("Neurons: Update type. Choose from: max, threshold, every");
+    program.add_argument("--neuron-connection-type")
+        .default_value(std::string("layered"))
+        .action(
+            [](const std::string &value)
+            {
+                static const std::vector<std::string> choices = {"no-memory", "layered", "fully-connected"};
+                if (std::find(choices.begin(), choices.end(), value) != choices.end())
+                {
+                    return value;
+                }
+                return std::string{"layered"};
+            })
+        .help("Neurons: Connection type. Choose from: no-memory, layered, fully-connected");
 
     program.add_argument("-p", "--agent-min-size")
         .default_value(5.0f)
@@ -387,9 +416,9 @@ int ParseArgs(int argc, char *argv[])
     config.SEED = program.get<long>("-s");
     config.NUMBOIDS = program.get<int>("-n");
     config.MUTATION = program.get<float>("-m");
-    config.NEURAL_THRESHOLD = program.get<float>("-t");
     config.NUM_MEMORY_PER_LAYER = program.get<long>("-k");
     config.NUM_MEMORY_LAYERS = program.get<long>("-l");
+    config.NEURAL_THRESHOLD = program.get<float>("-t");
     config.BOUNDED_WEIGHTS = program.get<bool>("-b");
     config.MAX_WEIGHT = program.get<float>("-x");
     config.MIN_SIZE = program.get<float>("-p");
@@ -447,14 +476,46 @@ int ParseArgs(int argc, char *argv[])
             return a + "," + b;
         });
 
+    auto updateType = program.get<std::string>("--neuron-update-type");
+    if (updateType == "max")
+    {
+        config.NEURAL_UPDATE_TYPE = NeuralUpdateType::MAX;
+    }
+    if (updateType == "threshold")
+    {
+        config.NEURAL_UPDATE_TYPE = NeuralUpdateType::THRESHOLD;
+    }
+    if (updateType == "every")
+    {
+        config.NEURAL_UPDATE_TYPE = NeuralUpdateType::EVERY;
+    }
+
+    auto brainType = program.get<std::string>("--neuron-connection-type");
+    if (brainType == "no-memory")
+    {
+        config.NEURAL_BRAIN_TYPE = NeuralBrainType::NO_MEMORY;
+    }
+    if (brainType == "layered")
+    {
+        config.NEURAL_BRAIN_TYPE = NeuralBrainType::LAYERED;
+    }
+    if (brainType == "fully-connected")
+    {
+        config.NEURAL_BRAIN_TYPE = NeuralBrainType::FULLY_CONNECTED;
+    }
+
     std::cout
         << "Config:" << std::endl
         << " SEED=" << config.SEED << std::endl
         << " NUMBOIDS=" << config.NUMBOIDS << std::endl
         << " MUTATION=" << config.MUTATION << std::endl
-        << " NEURAL_THRESHOLD=" << config.NEURAL_THRESHOLD << std::endl
         << " NUM_MEMORY_PER_LAYER=" << config.NUM_MEMORY_PER_LAYER << std::endl
         << " NUM_MEMORY_LAYERS=" << config.NUM_MEMORY_LAYERS << std::endl
+        << " SOURCES=" << sourceslist << std::endl
+        << " SINKS=" << sinkslist << std::endl
+        << " NEURAL_UPDATE_TYPE=" << (int)config.NEURAL_UPDATE_TYPE << std::endl
+        << " NEURAL_BRAIN_TYPE=" << (int)config.NEURAL_BRAIN_TYPE << std::endl
+        << " NEURAL_THRESHOLD=" << config.NEURAL_THRESHOLD << std::endl
         << " BOUNDED_WEIGHTS=" << config.BOUNDED_WEIGHTS << std::endl
         << " MAX_WEIGHT=" << config.MAX_WEIGHT << std::endl
         << " MIN_SIZE=" << config.MIN_SIZE << std::endl
@@ -467,9 +528,7 @@ int ParseArgs(int argc, char *argv[])
         << " ZOOM=" << config.ZOOM << std::endl
         << " REALTIME_EVERY_NGENS=" << config.REALTIME_EVERY_NGENS << std::endl
         << " SAVE_FRAMES=" << config.SAVE_FRAMES << std::endl
-        << " VIDEO_SCALE=" << config.VIDEO_SCALE << std::endl
-        << " SOURCES=" << sourceslist << std::endl
-        << " SINKS=" << sinkslist << std::endl;
+        << " VIDEO_SCALE=" << config.VIDEO_SCALE << std::endl;
 
     return 0;
 }

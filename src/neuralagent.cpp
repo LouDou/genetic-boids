@@ -7,7 +7,11 @@ NeuralAgent::NeuralAgent() : Agent()
 
 NeuralAgent::NeuralAgent(const NeuralAgent::SP other) : Agent(other)
 {
+    updateType(other->updateType());
+    brainType(other->brainType());
+
     setupBrain();
+
     // copy brain weights
     const auto &b = other->brain();
     // std::cout << "NA copy my brain = " << m_brain.size() << " other brain = " << b.size() << std::endl;
@@ -23,13 +27,24 @@ void NeuralAgent::update(const size_t &iter)
 {
     age(iter);
     resetNeurons();
-    update_Every();
+    switch (m_updateType)
+    {
+    case NeuralUpdateType::MAX:
+        update_Max();
+        break;
+    case NeuralUpdateType::THRESHOLD:
+        update_Threshold();
+        break;
+    case NeuralUpdateType::EVERY:
+        update_Every();
+        break;
+    }
     applySinkValues();
 }
 
 void NeuralAgent::update_Max()
 {
-    Numeric maxval = -1;
+    Numeric maxabsval = -1;
     int maxidx = -1;
 
     // calculate neuron activation values
@@ -39,9 +54,10 @@ void NeuralAgent::update_Max()
         const auto val = src->read(shared_from_this(), w) * w;
         // std::cout << "w=" << w << " val=" << val << " maxval=" << maxval << std::endl;
         // find maximally activated sink
-        if (val > 0.f && val > maxval)
+        const auto absval = std::abs(val);
+        if (absval > maxabsval)
         {
-            maxval = val;
+            maxabsval = absval;
             maxidx = i;
         }
     }
@@ -246,20 +262,31 @@ void NeuralAgent::setupBrain()
 
     // Create sources and sinks
     std::vector<Neuron::SP> sources;
-    for (const auto &sourceName : config.NEURON_SOURCES) {
+    for (const auto &sourceName : config.NEURON_SOURCES)
+    {
         auto sf = sourceRegistry.at(sourceName);
         sources.push_back(sf());
     }
     m_sources.swap(sources);
 
     std::vector<Neuron::SP> sinks;
-    for (const auto &sourceName : config.NEURON_SINKS) {
+    for (const auto &sourceName : config.NEURON_SINKS)
+    {
         auto sf = sinkRegistry.at(sourceName);
         sinks.push_back(sf());
     }
     m_sinks.swap(sinks);
 
-    // setupBrain_no_memory();
-    setupBrain_layered_memory();
-    // setupBrain_fully_connected_memory();
+    switch (m_brainType)
+    {
+    case NeuralBrainType::NO_MEMORY:
+        setupBrain_no_memory();
+        break;
+    case NeuralBrainType::LAYERED:
+        setupBrain_layered_memory();
+        break;
+    case NeuralBrainType::FULLY_CONNECTED:
+        setupBrain_fully_connected_memory();
+        break;
+    }
 }
