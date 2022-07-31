@@ -3,6 +3,8 @@
 #include <chrono>
 #include <cstddef>
 #include <inttypes.h>
+#include <string>
+#include <vector>
 
 #include <SDL2/SDL.h>
 
@@ -35,6 +37,30 @@ struct Config
     Numeric NEURAL_THRESHOLD = 0.0; // only for update_Threshold strategy
     size_t NUM_MEMORY_PER_LAYER = 0;
     size_t NUM_MEMORY_LAYERS = 0;
+    std::vector<std::string> NEURON_SOURCES = {
+        "age",
+        "west",
+        "east",
+        "north",
+        "south",
+        "direction",
+        "velocity",
+        "goal-reached",
+        "out-of-bounds",
+        "red",
+        "green",
+        "blue",
+        "size",
+    };
+    std::vector<std::string> NEURON_SINKS = {
+        "move",
+        "direction",
+        "velocity",
+        "red",
+        "green",
+        "blue",
+        "size",
+    };
 
     bool BOUNDED_WEIGHTS = false;
     Numeric MAX_WEIGHT = 0.0;

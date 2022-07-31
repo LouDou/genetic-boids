@@ -24,6 +24,62 @@ const Config &getConfig()
 #include "ui.h"
 #include "video.h"
 
+NeuronRegistry sourcesRegistry{
+    {"age", []()
+     { return std::make_shared<Source_Age>(); }},
+    {"west", []()
+     { return std::make_shared<Source_West>(); }},
+    {"east", []()
+     { return std::make_shared<Source_East>(); }},
+    {"north", []()
+     { return std::make_shared<Source_North>(); }},
+    {"south", []()
+     { return std::make_shared<Source_South>(); }},
+    {"direction", []()
+     { return std::make_shared<Source_Direction>(); }},
+    {"velocity", []()
+     { return std::make_shared<Source_Velocity>(); }},
+    {"goal-reached", []()
+     { return std::make_shared<Source_Goal_Reached>(); }},
+    {"out-of-bounds", []()
+     { return std::make_shared<Source_Out_of_Bounds>(); }},
+    {"red", []()
+     { return std::make_shared<Source_Red>(); }},
+    {"green", []()
+     { return std::make_shared<Source_Green>(); }},
+    {"blue", []()
+     { return std::make_shared<Source_Blue>(); }},
+    {"size", []()
+     { return std::make_shared<Source_Size>(); }},
+};
+
+const NeuronRegistry &getSources()
+{
+    return sourcesRegistry;
+}
+
+NeuronRegistry sinksRegistry{
+    {"move", []()
+     { return std::make_shared<Sink_Move>(); }},
+    {"direction", []()
+     { return std::make_shared<Sink_Direction>(); }},
+    {"velocity", []()
+     { return std::make_shared<Sink_Velocity>(); }},
+    {"red", []()
+     { return std::make_shared<Sink_Red>(); }},
+    {"green", []()
+     { return std::make_shared<Sink_Green>(); }},
+    {"blue", []()
+     { return std::make_shared<Sink_Blue>(); }},
+    {"size", []()
+     { return std::make_shared<Sink_Size>(); }},
+};
+
+const NeuronRegistry &getSinks()
+{
+    return sinksRegistry;
+}
+
 Position RandomPosition(const size_t maxx, const size_t maxy)
 {
     Position p;
@@ -258,11 +314,17 @@ int ParseArgs(int argc, char *argv[])
     program.add_argument("-b", "--neuron-bounded-weights")
         .default_value(false)
         .implicit_value(true)
-        .help("Clamp neuron output weight values");
+        .help("Neurons: Clamp neuron output weight values");
     program.add_argument("-x", "--neuron-max-weight")
         .default_value(2.0f)
         .action(AsFloat)
-        .help("Bounded weights: Maximum neuron output weight magnitude");
+        .help("Neurons: With bounded weights: Maximum neuron output weight magnitude");
+    program.add_argument("--neuron-sources")
+        .nargs(1, 13)
+        .help("Neurons: Neural sources. Choose from: age, west, east, north, south, direction, velocity, goal-reached, out-of-bounds, red, green, blue, size");
+    program.add_argument("--neuron-sinks")
+        .nargs(1, 7)
+        .help("Neurons: Neural sinks. Choose from: move, direction, velocity, red, green, blue, size");
 
     program.add_argument("-p", "--agent-min-size")
         .default_value(5.0f)
@@ -342,6 +404,49 @@ int ParseArgs(int argc, char *argv[])
     config.SAVE_FRAMES = program.get<bool>("-v");
     config.VIDEO_SCALE = program.get<float>("-d");
 
+    std::vector<std::string> sources = program.get<std::vector<std::string>>("--neuron-sources");
+    std::vector<std::string> validSources;
+    std::copy_if(
+        sources.begin(), sources.end(),
+        std::back_inserter(validSources),
+        [](auto &v)
+        { return sourcesRegistry.contains(v); });
+    if (validSources.size() > 0)
+    {
+        config.NEURON_SOURCES.swap(validSources);
+    }
+
+    const char *const delim = ", ";
+    const auto sourceslist = std::accumulate(
+        std::next(config.NEURON_SOURCES.begin()),
+        config.NEURON_SOURCES.end(),
+        config.NEURON_SOURCES[0],
+        [](std::string a, std::string b)
+        {
+            return a + "," + b;
+        });
+
+    std::vector<std::string> sinks = program.get<std::vector<std::string>>("--neuron-sinks");
+    std::vector<std::string> validSinks;
+    std::copy_if(
+        sinks.begin(), sinks.end(),
+        std::back_inserter(validSinks),
+        [](auto &v)
+        { return sinksRegistry.contains(v); });
+    if (validSinks.size() > 0)
+    {
+        config.NEURON_SINKS.swap(validSinks);
+    }
+
+    const auto sinkslist = std::accumulate(
+        std::next(config.NEURON_SINKS.begin()),
+        config.NEURON_SINKS.end(),
+        config.NEURON_SINKS[0],
+        [](std::string a, std::string b)
+        {
+            return a + "," + b;
+        });
+
     std::cout
         << "Config:" << std::endl
         << " SEED=" << config.SEED << std::endl
@@ -362,7 +467,9 @@ int ParseArgs(int argc, char *argv[])
         << " ZOOM=" << config.ZOOM << std::endl
         << " REALTIME_EVERY_NGENS=" << config.REALTIME_EVERY_NGENS << std::endl
         << " SAVE_FRAMES=" << config.SAVE_FRAMES << std::endl
-        << " VIDEO_SCALE=" << config.VIDEO_SCALE << std::endl;
+        << " VIDEO_SCALE=" << config.VIDEO_SCALE << std::endl
+        << " SOURCES=" << sourceslist << std::endl
+        << " SINKS=" << sinkslist << std::endl;
 
     return 0;
 }

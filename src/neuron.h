@@ -1,6 +1,8 @@
 #pragma once
 
+#include <functional>
 #include <memory>
+#include <unordered_map>
 
 #include "config.h"
 #include "agent.h"
@@ -15,5 +17,8 @@ public:
     virtual void reset(){};
     virtual void apply(Agent::SP a){};
 };
+
+using NeuronFactory = std::function<Neuron::SP()>;
+using NeuronRegistry = std::unordered_map<std::string, NeuronFactory>;
 
 Numeric sigmoid(const Numeric &x);

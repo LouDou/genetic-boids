@@ -141,3 +141,5 @@ public:
     };
 };
 #endif
+
+const NeuronRegistry &getSources();

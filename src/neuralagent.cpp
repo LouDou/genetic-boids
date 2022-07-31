@@ -234,39 +234,29 @@ void NeuralAgent::setupBrain_fully_connected_memory()
 
 void NeuralAgent::setupBrain()
 {
+    const auto &config = getConfig();
+
     m_brain.clear();
     m_sources.clear();
     m_sinks.clear();
     m_memory.clear();
 
+    const auto &sourceRegistry = getSources();
+    const auto &sinkRegistry = getSinks();
+
     // Create sources and sinks
-    std::vector<Neuron::SP> sources{
-        std::make_shared<Source_West>(),
-        std::make_shared<Source_East>(),
-        std::make_shared<Source_North>(),
-        std::make_shared<Source_South>(),
-        std::make_shared<Source_Direction>(),
-        std::make_shared<Source_Velocity>(),
-        // std::make_shared<Source_Goal_Reached>(),
-        // std::make_shared<Source_Out_of_Bounds>(),
-        std::make_shared<Source_Red>(),
-        std::make_shared<Source_Green>(),
-        std::make_shared<Source_Blue>(),
-        std::make_shared<Source_Size>(),
-        // #if USE_KDTREE
-        //             std::make_shared<Source_NumNeighbours>(),
-        // #endif
-    };
+    std::vector<Neuron::SP> sources;
+    for (const auto &sourceName : config.NEURON_SOURCES) {
+        auto sf = sourceRegistry.at(sourceName);
+        sources.push_back(sf());
+    }
     m_sources.swap(sources);
-    std::vector<Neuron::SP> sinks{
-        std::make_shared<Sink_Move>(),
-        std::make_shared<Sink_Direction>(),
-        std::make_shared<Sink_Velocity>(),
-        std::make_shared<Sink_Red>(),
-        std::make_shared<Sink_Green>(),
-        std::make_shared<Sink_Blue>(),
-        std::make_shared<Sink_Size>(),
-    };
+
+    std::vector<Neuron::SP> sinks;
+    for (const auto &sourceName : config.NEURON_SINKS) {
+        auto sf = sinkRegistry.at(sourceName);
+        sinks.push_back(sf());
+    }
     m_sinks.swap(sinks);
 
     // setupBrain_no_memory();

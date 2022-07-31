@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.0)
 project(genetic-boids)
 
-SET(CMAKE_CXX_FLAGS "-std=c++17 -fopenmp")
+SET(CMAKE_CXX_FLAGS "-std=c++20 -fopenmp")
 
 # Boids
 

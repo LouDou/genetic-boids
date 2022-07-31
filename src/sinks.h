@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_map>
+
 #include "neuron.h"
 
 class SummingSink : public Neuron
@@ -98,3 +100,5 @@ public:
         a->size(std::abs((config.MAX_SIZE * m_weight)));
     };
 };
+
+const NeuronRegistry &getSinks();
