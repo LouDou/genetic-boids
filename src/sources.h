@@ -127,19 +127,4 @@ public:
     };
 };
 
-#if USE_KDTREE
-class Source_NumNeighbours : public Neuron
-{
-public:
-    virtual const Numeric read(Agent::SP a, const Numeric &weight)
-    {
-        const auto &p = a->position();
-        const double pt[2] = {p.x, p.y};
-        std::vector<std::pair<unsigned int, double>> results;
-        const auto count = 1 + kdtree.radiusSearch(pt, 8.0, results, searchParams);
-        return results.size() / static_cast<Numeric>(config.NUMBOIDS);
-    };
-};
-#endif
-
 const NeuronRegistry &getSources();

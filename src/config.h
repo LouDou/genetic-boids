@@ -13,8 +13,6 @@ extern "C"
 #include <libavutil/opt.h>
 }
 
-#define USE_KDTREE 0
-
 using Numeric = double;
 
 constexpr Numeric TWOPI = 2 * 3.14159;

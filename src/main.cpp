@@ -4,7 +4,6 @@
 #include <sstream>
 
 #include <argparse/argparse.hpp>
-#include <nanoflann.hpp>
 
 #include "config.h"
 
@@ -97,48 +96,12 @@ Colour RandomColour()
     return c;
 }
 
-// Agent kdtree
+// Agent Population
 
 struct Population
 {
     std::vector<Agent::SP> agents;
-
-#if USE_KDTREE
-    inline size_t kdtree_get_point_count() const
-    {
-        return agents.size();
-    }
-    inline double kdtree_get_pt(const size_t idx, const size_t dim) const
-    {
-        auto ent = agents.at(idx);
-        auto &pos = ent->position();
-        if (dim == 0)
-        {
-            return pos.x;
-        }
-        if (dim == 1)
-        {
-            return pos.y;
-        }
-        return 0.0;
-    }
-
-    template <class BBOX>
-    bool kdtree_get_bbox(BBOX &) const { return false; }
-#endif
 } population;
-
-#if USE_KDTREE
-typedef nanoflann::KDTreeSingleIndexAdaptor<
-    nanoflann::L2_Simple_Adaptor<Numeric, Population>,
-    Population,
-    2>
-    kdtree_t;
-
-kdtree_t kdtree(2, population, nanoflann::KDTreeSingleIndexAdaptorParams(5));
-
-nanoflann::SearchParams searchParams(32, 0, false);
-#endif
 
 void InitialCondition(Agent::SP a)
 {
@@ -240,14 +203,6 @@ int NextGeneration(size_t generation)
 }
 
 // UI
-
-#if USE_KDTREE
-int UpdateKdTree()
-{
-    kdtree.buildIndex();
-    return 0;
-}
-#endif
 
 int UpdateAgents(const size_t &iter)
 {
@@ -439,7 +394,7 @@ int ParseArgs(int argc, char *argv[])
         sources.begin(), sources.end(),
         std::back_inserter(validSources),
         [](auto &v)
-        { return sourcesRegistry.contains(v); });
+        { return sourcesRegistry.find(v) != sourcesRegistry.end(); });
     if (validSources.size() > 0)
     {
         config.NEURON_SOURCES.swap(validSources);
@@ -461,7 +416,7 @@ int ParseArgs(int argc, char *argv[])
         sinks.begin(), sinks.end(),
         std::back_inserter(validSinks),
         [](auto &v)
-        { return sinksRegistry.contains(v); });
+        { return sinksRegistry.find(v) != sinksRegistry.end(); });
     if (validSinks.size() > 0)
     {
         config.NEURON_SINKS.swap(validSinks);
@@ -568,9 +523,6 @@ int main(int argc, char *argv[])
     {
         for (size_t i = 0; i < config.GEN_ITERS; ++i, ++f, t_iter = now(), t = dt(t_start, t_iter) / 1000.0)
         {
-#if USE_KDTREE
-            UpdateKdTree();
-#endif
             if (ProcessEvents() != 0)
             {
                 return cleanup(1);
