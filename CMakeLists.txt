@@ -3,6 +3,10 @@ project(genetic-boids)
 
 SET(CMAKE_CXX_FLAGS "-std=c++20 -fopenmp")
 
+OPTION(FEATURE_RENDER_STATS "Enable support for rendering stats")
+OPTION(FEATURE_RENDER_VIDEO "Enable support for rendering to video")
+OPTION(FEATURE_CLI_OPTIONS "Enable support CLI options")
+
 # Boids
 
 add_executable(boids
@@ -19,18 +23,26 @@ add_executable(boids
 find_package(SDL2 CONFIG REQUIRED)
 target_link_libraries(boids PRIVATE SDL2::SDL2main SDL2::SDL2-static)
 
-target_link_libraries(boids PRIVATE fontconfig)
-
-find_package(sdl2-ttf CONFIG REQUIRED)
-target_link_libraries(boids PRIVATE SDL2::SDL2_ttf)
-
 find_package(sdl2-gfx CONFIG REQUIRED)
 target_link_libraries(boids PRIVATE SDL2::SDL2_gfx)
 
+if (FEATURE_RENDER_STATS)
+add_definitions(-DFEATURE_RENDER_STATS)
+target_link_libraries(boids PRIVATE fontconfig)
+find_package(sdl2-ttf CONFIG REQUIRED)
+target_link_libraries(boids PRIVATE SDL2::SDL2_ttf)
+endif()
+
+if (FEATURE_RENDER_VIDEO)
+add_definitions(-DFEATURE_RENDER_VIDEO)
 find_package(FFMPEG REQUIRED)
 target_include_directories(boids PRIVATE ${FFMPEG_INCLUDE_DIRS})
 target_link_directories(boids PRIVATE ${FFMPEG_LIBRARY_DIRS})
 target_link_libraries(boids PRIVATE ${FFMPEG_LIBRARIES})
+endif()
 
+if (FEATURE_CLI_OPTIONS)
+add_definitions(-DFEATURE_CLI_OPTIONS)
 find_package(argparse CONFIG REQUIRED)
 target_link_libraries(boids PRIVATE argparse::argparse)
+endif()

@@ -1,3 +1,5 @@
+#ifdef FEATURE_RENDER_VIDEO
+
 #pragma once
 
 #include <string>
@@ -30,3 +32,5 @@ struct AVConfig
 int InitAV(const size_t &width, const size_t &height);
 void SaveFrame(uint8_t *pixels, const int &pitch);
 void CleanupAV();
+
+#endif // FEATURE_RENDER_VIDEO

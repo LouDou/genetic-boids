@@ -3,9 +3,12 @@
 #include <vector>
 
 #include <SDL2/SDL.h>
-#include <SDL2/SDL_ttf.h>
 #include <SDL2/SDL2_gfxPrimitives.h>
+
+#ifdef FEATURE_RENDER_STATS
+#include <SDL2/SDL_ttf.h>
 #include <fontconfig/fontconfig.h>
+#endif // FEATURE_RENDER_STATS
 
 #include "agent.h"
 
@@ -14,7 +17,11 @@ struct UIConfig
     SDL_Window *window = nullptr;
     SDL_Renderer *render = nullptr;
     SDL_Texture *texture = nullptr;
+
+#ifdef FEATURE_RENDER_STATS
     TTF_Font *sans = nullptr;
+#endif // FEATURE_RENDER_STATS
+
     SDL_Event event;
 
     size_t winWidth;

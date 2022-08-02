@@ -1,3 +1,5 @@
+#ifdef FEATURE_RENDER_VIDEO
+
 #include <iostream>
 #include <iomanip>
 
@@ -206,3 +208,5 @@ void CleanupAV()
         av_packet_free(&avconfig.pkt);
     }
 }
+
+#endif // FEATURE_RENDER_VIDEO

@@ -8,18 +8,21 @@
 
 #include <SDL2/SDL.h>
 
+#ifdef FEATURE_RENDER_VIDEO
 extern "C"
 {
 #include <libavutil/opt.h>
 }
 
-using Numeric = double;
-
-constexpr Numeric TWOPI = 2 * 3.14159;
-
 // These are defined here because they have to match
-constexpr auto SDL_PF = SDL_PIXELFORMAT_RGB24;
 constexpr auto AV_SRC_PF = AV_PIX_FMT_RGB24;
+constexpr auto SDL_PF = SDL_PIXELFORMAT_RGB24;
+#else
+constexpr auto SDL_PF = SDL_PIXELFORMAT_RGB24;
+#endif // FEATURE_RENDER_VIDEO
+
+using Numeric = double;
+constexpr Numeric TWOPI = 2 * 3.14159;
 
 enum class NeuralUpdateType
 {
@@ -87,8 +90,10 @@ struct Config
     size_t GEN_ITERS = 0;
     size_t REALTIME_EVERY_NGENS = 0;
 
+#ifdef FEATURE_RENDER_VIDEO
     bool SAVE_FRAMES = false;
     Numeric VIDEO_SCALE = 0.0;
+#endif // FEATURE_RENDER_VIDEO
 };
 
 const Config &getConfig();

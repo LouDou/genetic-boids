@@ -14,6 +14,7 @@ const UIConfig &GetUIConfig()
     return uiconfig;
 }
 
+#ifdef FEATURE_RENDER_STATS
 std::string FindFont()
 {
     std::string out;
@@ -45,6 +46,7 @@ std::string FindFont()
 
     return out;
 }
+#endif // FEATURE_RENDER_STATS
 
 int InitSDL()
 {
@@ -74,6 +76,7 @@ int InitSDL()
         return 1;
     }
 
+#ifdef FEATURE_RENDER_STATS
     const auto ff = FindFont();
     if (ff.size() == 0)
     {
@@ -93,6 +96,7 @@ int InitSDL()
         std::cerr << "could not open font: " << SDL_GetError() << std::endl;
         return 1;
     }
+#endif // FEATURE_RENDER_STATS
 
     int szx;
     int szy;
@@ -186,6 +190,7 @@ int Render(std::vector<Agent::SP> agents, const size_t &generation, const size_t
         };
     }
 
+#ifdef FEATURE_RENDER_STATS
     // Render stats
     {
         std::stringstream stats;
@@ -213,11 +218,13 @@ int Render(std::vector<Agent::SP> agents, const size_t &generation, const size_t
         SDL_DestroyTexture(txtt);
         SDL_FreeSurface(txts);
     }
+#endif // FEATURE_RENDER_STATS
 
     // update
     {
         SDL_SetRenderTarget(uiconfig.render, NULL);
         SDL_RenderCopy(uiconfig.render, uiconfig.texture, NULL, NULL);
+#ifdef FEATURE_RENDER_VIDEO
         if (config.SAVE_FRAMES)
         {
             SDL_Surface *surface = SDL_CreateRGBSurfaceWithFormat(0, uiconfig.winWidth, uiconfig.winHeight, 32, SDL_PF);
@@ -226,6 +233,7 @@ int Render(std::vector<Agent::SP> agents, const size_t &generation, const size_t
             SaveFrame(pixels, surface->pitch);
             SDL_FreeSurface(surface);
         }
+#endif // FEATURE_RENDER_VIDEO
         SDL_RenderPresent(uiconfig.render);
     }
 

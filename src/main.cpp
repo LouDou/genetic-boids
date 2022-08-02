@@ -3,7 +3,9 @@
 #include <iostream>
 #include <sstream>
 
+#ifdef FEATURE_CLI_OPTIONS
 #include <argparse/argparse.hpp>
+#endif
 
 #include "config.h"
 
@@ -226,10 +228,13 @@ const auto dt = [](tp begin, tp end)
 int cleanup(int returnCode)
 {
     CleanupSDL();
+#ifdef FEATURE_RENDER_VIDEO
     CleanupAV();
+#endif // FEATURE_RENDER_VIDEO
     return returnCode;
 }
 
+#ifdef FEATURE_CLI_OPTIONS
 int ParseArgs(int argc, char *argv[])
 {
     argparse::ArgumentParser program("boids", "1.0", argparse::default_arguments::help);
@@ -348,6 +353,8 @@ int ParseArgs(int argc, char *argv[])
         .default_value(50)
         .action(AsInt)
         .help("Rendering: Render all iterations generation interval");
+
+#ifdef FEATURE_RENDER_VIDEO
     program.add_argument("-v", "--render-save-video")
         .default_value(false)
         .implicit_value(true)
@@ -356,6 +363,7 @@ int ParseArgs(int argc, char *argv[])
         .default_value(1.0f)
         .action(AsFloat)
         .help("Rendering: Output video scale factor");
+#endif // FEATURE_RENDER_VIDEO
 
     try
     {
@@ -385,8 +393,10 @@ int ParseArgs(int argc, char *argv[])
     config.GEN_ITERS = program.get<long>("-i");
     config.ZOOM = program.get<float>("-z");
     config.REALTIME_EVERY_NGENS = program.get<int>("-u");
+#ifdef FEATURE_RENDER_VIDEO
     config.SAVE_FRAMES = program.get<bool>("-v");
     config.VIDEO_SCALE = program.get<float>("-d");
+#endif // FEATURE_RENDER_VIDEO
 
     std::vector<std::string> sources = program.get<std::vector<std::string>>("--neuron-sources");
     std::vector<std::string> validSources;
@@ -482,11 +492,48 @@ int ParseArgs(int argc, char *argv[])
         << " GEN_ITERS=" << config.GEN_ITERS << std::endl
         << " ZOOM=" << config.ZOOM << std::endl
         << " REALTIME_EVERY_NGENS=" << config.REALTIME_EVERY_NGENS << std::endl
+#ifdef FEATURE_RENDER_VIDEO
         << " SAVE_FRAMES=" << config.SAVE_FRAMES << std::endl
         << " VIDEO_SCALE=" << config.VIDEO_SCALE << std::endl;
+#else
+        ;
+#endif // FEATURE_RENDER_VIDEO
 
     return 0;
 }
+#else
+int ParseArgs(int argc, char *argv[])
+{
+    // just fill in some config defaults
+    config.SEED = std::chrono::system_clock::now().time_since_epoch().count();
+    config.SCREEN_WIDTH = 800;
+    config.SCREEN_HEIGHT = 800;
+    config.ZOOM = 0.75;
+    config.NUMBOIDS = 500;
+    config.MUTATION = 0.001;
+    config.NUM_MEMORY_PER_LAYER = 4;
+    config.NUM_MEMORY_LAYERS = 2;
+    // SOURCES is already set
+    // SINKS is already set
+    // NEURAL_THRESHOLD is not required
+    // NEURAL_UPDATE_TYPE is already set
+    // NEURAL_BRAIN_TYPE is already set
+    // BOUNDED_WEIGHTS is already set
+    // MAX_WEIGHT is not required
+    config.MIN_SIZE = 1.5;
+    config.MAX_SIZE = 15;
+    config.MAX_VELOCITY = 20;
+    config.MAX_GENS = 12000;
+    config.GEN_ITERS = 500;
+    config.REALTIME_EVERY_NGENS = 10;
+#ifdef FEATURE_RENDER_VIDEO
+    config.SAVE_FRAMES = true;
+    config.VIDEO_SCALE = 1.0;
+#endif // FEATURE_RENDER_VIDEO
+
+    return 0;
+}
+#endif // FEATURE_CLI_OPTIONS
 
 int main(int argc, char *argv[])
 {
@@ -502,12 +549,13 @@ int main(int argc, char *argv[])
         return cleanup(1);
     }
 
+#ifdef FEATURE_RENDER_VIDEO
     const auto &uiconfig = GetUIConfig();
-
     if (InitAV(uiconfig.winWidth, uiconfig.winHeight) != 0)
     {
         return cleanup(1);
     }
+#endif // FEATURE_RENDER_VIDEO
 
     if (InitPopulation() != 0)
     {
