@@ -7,6 +7,10 @@
 #include <argparse/argparse.hpp>
 #endif
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif // __EMSCRIPTEN__
+
 #include "config.h"
 
 Config config;
@@ -588,6 +592,9 @@ int main(int argc, char *argv[])
                 return cleanup(1);
             }
 
+#ifdef __EMSCRIPTEN__
+            emscripten_sleep(1);
+#else
             // slow down for real-time animation 1/REALTIME_EVERY_NGENS generations,
             // but not the first
             if (g != 0 && g % config.REALTIME_EVERY_NGENS == 0)
@@ -601,6 +608,7 @@ int main(int argc, char *argv[])
                     SDL_Delay(delay);
                 }
             }
+#endif // __EMSCRIPTEN__
         }
 
         if (NextGeneration(g))

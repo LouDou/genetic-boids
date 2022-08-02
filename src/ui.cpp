@@ -58,11 +58,16 @@ int InitSDL()
         return 1;
     }
 
+#ifdef __EMSCRIPTEN__
+    const auto windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_OPENGL;
+#else
+    const auto windowFlags = SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN_DESKTOP;
+#endif
     uiconfig.window = SDL_CreateWindow(
         "boids",
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
         config.SCREEN_WIDTH, config.SCREEN_HEIGHT,
-        SDL_WINDOW_SHOWN | SDL_WINDOW_ALLOW_HIGHDPI | SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN_DESKTOP);
+        windowFlags);
     if (uiconfig.window == nullptr)
     {
         std::cerr << "could not create window: " << SDL_GetError() << std::endl;
