@@ -32,6 +32,8 @@ const Config &getConfig()
 NeuronRegistry sourcesRegistry{
     {"age", []()
      { return std::make_shared<Source_Age>(); }},
+    {"direction", []()
+     { return std::make_shared<Source_Direction>(); }},
     {"west", []()
      { return std::make_shared<Source_West>(); }},
     {"east", []()
@@ -40,8 +42,8 @@ NeuronRegistry sourcesRegistry{
      { return std::make_shared<Source_North>(); }},
     {"south", []()
      { return std::make_shared<Source_South>(); }},
-    {"direction", []()
-     { return std::make_shared<Source_Direction>(); }},
+    {"angular-velocity", []()
+     { return std::make_shared<Source_Angular_Velocity>(); }},
     {"velocity", []()
      { return std::make_shared<Source_Velocity>(); }},
     {"goal-reached", []()
@@ -64,12 +66,14 @@ const NeuronRegistry &getSources()
 }
 
 NeuronRegistry sinksRegistry{
-    {"move", []()
-     { return std::make_shared<Sink_Move>(); }},
+    {"angular-velocity", []()
+     { return std::make_shared<Sink_Angular_Velocity>(); }},
     {"direction", []()
      { return std::make_shared<Sink_Direction>(); }},
     {"velocity", []()
      { return std::make_shared<Sink_Velocity>(); }},
+    {"move", []()
+     { return std::make_shared<Sink_Move>(); }},
     {"red", []()
      { return std::make_shared<Sink_Red>(); }},
     {"green", []()
@@ -116,6 +120,7 @@ void InitialCondition(Agent::SP a)
     a->colour(RandomColour());
     a->direction(randf() * TWOPI);
     a->velocity(bipolarrandf() * config.MAX_VELOCITY);
+    a->angular_vel(bipolarrandf() * config.MAX_ANGULAR_VELOCITY);
 }
 
 int InitPopulation()
@@ -331,6 +336,10 @@ int ParseArgs(int argc, char *argv[])
         .default_value(24.0f)
         .action(AsFloat)
         .help("Agent properties: Maximum velocity magnitude");
+    program.add_argument("-o", "--agent-max-angular-velocity")
+        .default_value(static_cast<float>(TWOPI))
+        .action(AsFloat)
+        .help("Agent properties: Maximum angular velocity magnitude");
 
     program.add_argument("-w", "--simulation-bound-width")
         .default_value(1280)
@@ -391,6 +400,7 @@ int ParseArgs(int argc, char *argv[])
     config.MIN_SIZE = program.get<float>("-p");
     config.MAX_SIZE = program.get<float>("-q");
     config.MAX_VELOCITY = program.get<float>("-r");
+    config.MAX_ANGULAR_VELOCITY = program.get<float>("-o");
     config.SCREEN_WIDTH = program.get<int>("-w");
     config.SCREEN_HEIGHT = program.get<int>("-h");
     config.MAX_GENS = program.get<long>("-g");
@@ -490,6 +500,7 @@ int ParseArgs(int argc, char *argv[])
         << " MIN_SIZE=" << config.MIN_SIZE << std::endl
         << " MAX_SIZE=" << config.MAX_SIZE << std::endl
         << " MAX_VELOCITY=" << config.MAX_VELOCITY << std::endl
+        << " MAX_ANGULAR_VELOCITY=" << config.MAX_ANGULAR_VELOCITY << std::endl
         << " SCREEN_WIDTH=" << config.SCREEN_WIDTH << std::endl
         << " SCREEN_HEIGHT=" << config.SCREEN_HEIGHT << std::endl
         << " MAX_GENS=" << config.MAX_GENS << std::endl
@@ -513,8 +524,8 @@ int ParseArgs(int argc, char *argv[])
     config.SCREEN_WIDTH = 800;
     config.SCREEN_HEIGHT = 800;
     config.ZOOM = 0.75;
-    config.NUMBOIDS = 500;
-    config.MUTATION = 0.001;
+    config.NUMBOIDS = 50;
+    config.MUTATION = 0.01;
     config.NUM_MEMORY_PER_LAYER = 4;
     config.NUM_MEMORY_LAYERS = 2;
     // SOURCES is already set
@@ -526,9 +537,10 @@ int ParseArgs(int argc, char *argv[])
     // MAX_WEIGHT is not required
     config.MIN_SIZE = 1.5;
     config.MAX_SIZE = 15;
-    config.MAX_VELOCITY = 20;
+    config.MAX_VELOCITY = 25;
+    config.MAX_ANGULAR_VELOCITY = TWOPI;
     config.MAX_GENS = 12000;
-    config.GEN_ITERS = 500;
+    config.GEN_ITERS = 2000;
     config.REALTIME_EVERY_NGENS = 10;
 #ifdef FEATURE_RENDER_VIDEO
     config.SAVE_FRAMES = true;

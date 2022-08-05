@@ -34,6 +34,15 @@ protected:
     bool m_applied;
 };
 
+class Sink_Velocity : public SummingSink
+{
+public:
+    virtual void _apply(Agent::SP a)
+    {
+        a->velocity(a->velocity() + m_weight);
+    };
+};
+
 class Sink_Move : public SummingSink
 {
 public:
@@ -43,21 +52,21 @@ public:
     };
 };
 
+class Sink_Angular_Velocity : public SummingSink
+{
+public:
+    virtual void _apply(Agent::SP a)
+    {
+        a->angular_vel(a->angular_vel() + m_weight);
+    };
+};
+
 class Sink_Direction : public SummingSink
 {
 public:
     virtual void _apply(Agent::SP a)
     {
-        a->direction(a->direction() + m_weight);
-    };
-};
-
-class Sink_Velocity : public SummingSink
-{
-public:
-    virtual void _apply(Agent::SP a)
-    {
-        a->velocity(a->velocity() + m_weight);
+        a->direction(a->direction() + (a->angular_vel() * m_weight));
     };
 };
 

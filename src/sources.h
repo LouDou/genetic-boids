@@ -13,6 +13,16 @@ public:
     };
 };
 
+class Source_Velocity : public Neuron
+{
+public:
+    virtual const Numeric read(Agent::SP a, const Numeric &weight)
+    {
+        const auto &config = getConfig();
+        return a->velocity() / config.MAX_VELOCITY;
+    };
+};
+
 class Source_West : public Neuron
 {
 public:
@@ -53,22 +63,22 @@ public:
     };
 };
 
+class Source_Angular_Velocity : public Neuron
+{
+public:
+    virtual const Numeric read(Agent::SP a, const Numeric &weight)
+    {
+        const auto &config = getConfig();
+        return a->angular_vel() / config.MAX_ANGULAR_VELOCITY;
+    };
+};
+
 class Source_Direction : public Neuron
 {
 public:
     virtual const Numeric read(Agent::SP a, const Numeric &weight)
     {
         return a->direction() / TWOPI;
-    };
-};
-
-class Source_Velocity : public Neuron
-{
-public:
-    virtual const Numeric read(Agent::SP a, const Numeric &weight)
-    {
-        const auto &config = getConfig();
-        return a->velocity() / config.MAX_VELOCITY;
     };
 };
 

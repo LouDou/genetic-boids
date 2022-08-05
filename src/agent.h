@@ -44,6 +44,13 @@ public:
 
     void size(Numeric next);
 
+    Numeric &velocity()
+    {
+        return m_velocity;
+    }
+
+    void velocity(const Numeric &next);
+
     Position &position()
     {
         return m_pos;
@@ -59,6 +66,13 @@ public:
 
     void colour(const Colour &next);
 
+    Numeric &angular_vel()
+    {
+        return m_angular_vel;
+    }
+
+    void angular_vel(const Numeric &next);
+
     Numeric &direction()
     {
         return m_direction;
@@ -66,19 +80,15 @@ public:
 
     void direction(const Numeric &next);
 
-    Numeric &velocity()
-    {
-        return m_velocity;
-    }
-
-    void velocity(const Numeric &next);
-
 private:
     size_t m_age;
     Numeric m_size;
+
+    Numeric m_velocity;
     Position m_pos;
+    
     Colour m_col;
 
+    Numeric m_angular_vel;
     Numeric m_direction;
-    Numeric m_velocity;
 };

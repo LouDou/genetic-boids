@@ -59,17 +59,19 @@ struct Config
         "south",
         "direction",
         "velocity",
+        "angular-velocity",
         "goal-reached",
-        "out-of-bounds",
+        // "out-of-bounds",
         "red",
         "green",
         "blue",
         "size",
     };
     std::vector<std::string> NEURON_SINKS = {
-        "move",
+        "angular-velocity",
+        // "velocity",
         "direction",
-        "velocity",
+        "move",
         "red",
         "green",
         "blue",
@@ -85,6 +87,7 @@ struct Config
     Numeric MIN_SIZE = 0.0;
     Numeric MAX_SIZE = 0.0;
     Numeric MAX_VELOCITY = 0.0;
+    Numeric MAX_ANGULAR_VELOCITY = 0.0;
 
     size_t MAX_GENS = 0;
     size_t GEN_ITERS = 0;

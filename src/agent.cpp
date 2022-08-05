@@ -8,12 +8,27 @@ Agent::Agent(Agent::SP other)
     position(other->position());
     colour(other->colour());
     velocity(other->velocity());
+    angular_vel(other->angular_vel());
 }
 
 void Agent::size(Numeric next)
 {
     const auto &config = getConfig();
     m_size = std::max(config.MIN_SIZE, std::min(config.MAX_SIZE, next));
+}
+
+void Agent::velocity(const Numeric &next)
+{
+    const auto &config = getConfig();
+    m_velocity = next;
+    if (m_velocity < -config.MAX_VELOCITY)
+    {
+        m_velocity = -config.MAX_VELOCITY;
+    }
+    if (m_velocity > config.MAX_VELOCITY)
+    {
+        m_velocity = config.MAX_VELOCITY;
+    }
 }
 
 void Agent::position(const Position &next)
@@ -35,21 +50,21 @@ void Agent::colour(const Colour &next)
     m_col.b = next.b;
 }
 
+void Agent::angular_vel(const Numeric &next)
+{
+    const auto &config = getConfig();
+    m_angular_vel = next;
+    if (m_angular_vel < -config.MAX_ANGULAR_VELOCITY)
+    {
+        m_angular_vel = -config.MAX_ANGULAR_VELOCITY;
+    }
+    if (m_angular_vel > config.MAX_ANGULAR_VELOCITY)
+    {
+        m_angular_vel = config.MAX_ANGULAR_VELOCITY;
+    }
+}
+
 void Agent::direction(const Numeric &next)
 {
     m_direction = std::fmod(next, TWOPI);
-}
-
-void Agent::velocity(const Numeric &next)
-{
-    const auto &config = getConfig();
-    m_velocity = next;
-    if (m_velocity < -config.MAX_VELOCITY)
-    {
-        m_velocity = -config.MAX_VELOCITY;
-    }
-    if (m_velocity > config.MAX_VELOCITY)
-    {
-        m_velocity = config.MAX_VELOCITY;
-    }
 }
