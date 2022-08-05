@@ -1,4 +1,5 @@
 #include "neuralagent.h"
+#include "random.h"
 
 NeuralAgent::NeuralAgent() : Agent()
 {
@@ -14,10 +15,12 @@ NeuralAgent::NeuralAgent(const NeuralAgent::SP other) : Agent(other)
 
     // copy brain weights
     const auto &b = other->brain();
+    const auto &d = other->weight_delta();
     // std::cout << "NA copy my brain = " << m_brain.size() << " other brain = " << b.size() << std::endl;
     for (size_t i = 0; i < m_brain.size(); ++i)
     {
         std::get<1>(m_brain[i]) = std::get<1>(b[i]);
+        m_weight_delta[i] = d[i];
     }
 }
 
@@ -288,5 +291,12 @@ void NeuralAgent::setupBrain()
     case NeuralBrainType::FULLY_CONNECTED:
         setupBrain_fully_connected_memory();
         break;
+    }
+
+    m_weight_delta.clear();
+    m_weight_delta.resize(m_brain.size());
+    for (size_t i = 0; i < m_brain.size(); ++i)
+    {
+        m_weight_delta[i] = randf() > 0.5 ? 1 : -1;
     }
 }

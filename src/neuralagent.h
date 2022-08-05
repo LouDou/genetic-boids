@@ -98,6 +98,11 @@ public:
         return m_brain;
     }
 
+    std::vector<Numeric> &weight_delta()
+    {
+        return m_weight_delta;
+    }
+
     void update(const size_t &iter);
 
     void updateType(const NeuralUpdateType &next)
@@ -141,6 +146,7 @@ private:
 
 private:
     Brain m_brain;
+    std::vector<Numeric> m_weight_delta;
     NeuralUpdateType m_updateType = NeuralUpdateType::EVERY;
     NeuralBrainType m_brainType = NeuralBrainType::LAYERED;
     std::vector<Neuron::SP> m_sources;

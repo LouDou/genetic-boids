@@ -191,6 +191,7 @@ int NextGeneration(size_t generation)
     {
         auto a = std::static_pointer_cast<NeuralAgent>(e);
         auto &b = a->brain();
+        auto &d = a->weight_delta();
         for (size_t j = 0; j < b.size(); ++j)
         {
             if (config.BOUNDED_WEIGHTS)
@@ -199,12 +200,15 @@ int NextGeneration(size_t generation)
                     -config.MAX_WEIGHT,
                     std::min(
                         config.MAX_WEIGHT,
-                        std::get<1>(b[j]) + (bipolarrandf() * config.MUTATION)));
+                        std::get<1>(b[j]) + (d[j] * randf() * config.MUTATION)));
             }
             else
             {
-
-                std::get<1>(b[j]) += (bipolarrandf() * config.MUTATION);
+                std::get<1>(b[j]) += (d[j] * randf() * config.MUTATION);
+            }
+            if (randf() < config.MUTATION)
+            {
+                d[j] *= -1; // swap mutation direction
             }
         }
     }
