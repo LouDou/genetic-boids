@@ -74,7 +74,7 @@ int InitSDL()
         return 1;
     }
 
-    uiconfig.render = SDL_CreateRenderer(uiconfig.window, -1, SDL_RENDERER_ACCELERATED /* | SDL_RENDERER_PRESENTVSYNC */);
+    uiconfig.render = SDL_CreateRenderer(uiconfig.window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE /* | SDL_RENDERER_PRESENTVSYNC */);
     if (uiconfig.render == nullptr)
     {
         std::cerr << "could not create renderer: " << SDL_GetError() << std::endl;
@@ -228,6 +228,7 @@ int Render(std::vector<Agent::SP> agents, const size_t &generation, const size_t
     // update
     {
         SDL_SetRenderTarget(uiconfig.render, NULL);
+        SDL_RenderClear(uiconfig.render);
         SDL_RenderCopy(uiconfig.render, uiconfig.texture, NULL, NULL);
 #ifdef FEATURE_RENDER_VIDEO
         if (config.SAVE_FRAMES)
