@@ -69,7 +69,7 @@ struct Config
     };
     std::vector<std::string> NEURON_SINKS = {
         "angular-velocity",
-        // "velocity",
+        "velocity",
         "direction",
         "move",
         "red",
