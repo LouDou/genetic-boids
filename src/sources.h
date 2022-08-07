@@ -82,21 +82,12 @@ public:
     };
 };
 
-class Source_Goal_Reached : public Neuron
+class Source_Error : public Neuron
 {
 public:
     virtual const Numeric read(Agent::SP a, const Numeric &weight)
     {
-        return LiveStrategy(a) ? 1 : 0;
-    };
-};
-
-class Source_Out_of_Bounds : public Neuron
-{
-public:
-    virtual const Numeric read(Agent::SP a, const Numeric &weight)
-    {
-        return LiveStrategy_InBounds(a) ? 1 : 0;
+        return ErrorFunction(a);
     };
 };
 

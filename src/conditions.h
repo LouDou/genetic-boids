@@ -7,5 +7,4 @@
 
 using LiveCondition = std::function<const bool(Agent::SP)>;
 
-const bool LiveStrategy(Agent::SP a);
-const bool LiveStrategy_InBounds(Agent::SP a);
+const Numeric ErrorFunction(Agent::SP a);

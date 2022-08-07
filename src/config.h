@@ -60,8 +60,7 @@ struct Config
         "direction",
         "velocity",
         "angular-velocity",
-        "goal-reached",
-        // "out-of-bounds",
+        "error",
         "red",
         "green",
         "blue",
@@ -92,6 +91,7 @@ struct Config
     size_t MAX_GENS = 0;
     size_t GEN_ITERS = 0;
     size_t REALTIME_EVERY_NGENS = 0;
+    Numeric MAX_ERROR = 0;
 
 #ifdef FEATURE_RENDER_VIDEO
     bool SAVE_FRAMES = false;

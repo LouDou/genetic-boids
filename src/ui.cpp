@@ -182,10 +182,10 @@ int Render(std::vector<Agent::SP> agents, const size_t &generation, const size_t
         {
             const auto &col = entity->colour();
 
-            Uint8 alpha = 48;
-            if (LiveStrategy(entity))
+            const auto error = ErrorFunction(entity);
+            Uint8 alpha = std::min(255.0, std::max(5.0, 5 + (250 * (1 - error))));
+            if (error < config.MAX_ERROR)
             {
-                alpha = 255;
                 living++;
             }
 

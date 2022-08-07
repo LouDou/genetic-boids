@@ -46,10 +46,8 @@ NeuronRegistry sourcesRegistry{
      { return std::make_shared<Source_Angular_Velocity>(); }},
     {"velocity", []()
      { return std::make_shared<Source_Velocity>(); }},
-    {"goal-reached", []()
-     { return std::make_shared<Source_Goal_Reached>(); }},
-    {"out-of-bounds", []()
-     { return std::make_shared<Source_Out_of_Bounds>(); }},
+    {"error", []()
+     { return std::make_shared<Source_Error>(); }},
     {"red", []()
      { return std::make_shared<Source_Red>(); }},
     {"green", []()
@@ -153,15 +151,25 @@ int NextGeneration(size_t generation)
 {
     std::vector<Agent::SP> survivors;
     // remove dead
+    Numeric minError = INFINITY;
+    Numeric maxError = 0;
     for (auto e : population.agents)
     {
-        if (LiveStrategy(e))
+        const auto error = ErrorFunction(e);
+        minError = std::min(error, minError);
+        maxError = std::max(error, maxError);
+        if (error < config.MAX_ERROR)
         {
             survivors.push_back(e);
         }
     }
 
-    std::cout << "generation " << generation << " survivors = " << survivors.size() << std::endl;
+    std::cout
+        << "generation " << generation
+        << " min error = " << minError
+        << " max error = " << maxError
+        << " survivors = " << survivors.size()
+        << std::endl;
 
     NUM_SURVIVORS = survivors.size();
     if (NUM_SURVIVORS == 0)
@@ -361,6 +369,10 @@ int ParseArgs(int argc, char *argv[])
         .default_value(400L)
         .action(AsLong)
         .help("Simulation: Iterations per generation");
+    program.add_argument("-e", "--max-error")
+        .default_value(1.0f)
+        .action(AsFloat)
+        .help("Simulation: Maximum error allowed for survival");
 
     program.add_argument("-z", "--render-zoom-factor")
         .default_value(1.0f)
@@ -409,6 +421,7 @@ int ParseArgs(int argc, char *argv[])
     config.SCREEN_HEIGHT = program.get<int>("-h");
     config.MAX_GENS = program.get<long>("-g");
     config.GEN_ITERS = program.get<long>("-i");
+    config.MAX_ERROR = program.get<float>("-e");
     config.ZOOM = program.get<float>("-z");
     config.REALTIME_EVERY_NGENS = program.get<int>("-u");
 #ifdef FEATURE_RENDER_VIDEO
@@ -509,6 +522,7 @@ int ParseArgs(int argc, char *argv[])
         << " SCREEN_HEIGHT=" << config.SCREEN_HEIGHT << std::endl
         << " MAX_GENS=" << config.MAX_GENS << std::endl
         << " GEN_ITERS=" << config.GEN_ITERS << std::endl
+        << " MAX_ERROR=" << config.MAX_ERROR << std::endl
         << " ZOOM=" << config.ZOOM << std::endl
         << " REALTIME_EVERY_NGENS=" << config.REALTIME_EVERY_NGENS << std::endl
 #ifdef FEATURE_RENDER_VIDEO
