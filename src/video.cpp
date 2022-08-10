@@ -44,7 +44,7 @@ int InitAV(const size_t &width, const size_t &height)
             return 1;
         }
 
-        avconfig.c->bit_rate = 10000000;
+        avconfig.c->bit_rate = 2000000;
         avconfig.c->width = width * config.VIDEO_SCALE;
         avconfig.c->height = height * config.VIDEO_SCALE;
         avconfig.c->time_base = AVRational{1, 25};
