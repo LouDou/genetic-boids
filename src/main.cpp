@@ -165,17 +165,17 @@ int NextGeneration(size_t generation)
     }
 
     std::cout
-        << "generation " << generation
-        << " min error = " << minError
-        << " max error = " << maxError
-        << " survivors = " << survivors.size()
+        << /*"generation" <<*/ generation << ","
+        << /*" min error = " <<*/ minError << ","
+        << /*" max error = " <<*/ maxError << ","
+        << /*" survivors = " <<*/ survivors.size()
         << std::endl;
 
     NUM_SURVIVORS = survivors.size();
     if (NUM_SURVIVORS == 0)
     {
         // re-popluate
-        std::cout << "Everyone's dead, Dave. Re-populating in generation " << (generation + 1) << std::endl;
+        // std::cout << "Everyone's dead, Dave. Re-populating in generation " << (generation + 1) << std::endl;
         InitPopulation();
         survivors.swap(population.agents);
     }
@@ -598,6 +598,8 @@ int main(int argc, char *argv[])
 
     tp t_start = now();
     tp t_iter = t_start;
+
+    std::cout << "generation,minError,maxError,survivors" << std::endl;
 
     long f = 0;
     double t = 0;
