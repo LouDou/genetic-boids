@@ -41,8 +41,8 @@ else()
     if (FEATURE_RENDER_STATS)
         add_definitions(-DFEATURE_RENDER_STATS)
         target_link_libraries(boids PRIVATE fontconfig)
-        find_package(sdl2-ttf CONFIG REQUIRED)
-        target_link_libraries(boids PRIVATE SDL2::SDL2_ttf)
+        find_package(SDL2_ttf CONFIG REQUIRED)
+        target_link_libraries(boids PRIVATE $<IF:$<TARGET_EXISTS:SDL2_ttf::SDL2_ttf>,SDL2_ttf::SDL2_ttf,SDL2_ttf::SDL2_ttf-static>)
     endif() # FEATURE_RENDER_STATS
 
     if (FEATURE_RENDER_VIDEO)
