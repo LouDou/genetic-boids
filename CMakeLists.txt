@@ -4,6 +4,7 @@ project(genetic-boids)
 SET(CMAKE_CXX_FLAGS "-std=c++20")
 
 OPTION(FEATURE_RENDER_STATS "Enable support for rendering stats")
+OPTION(FEATURE_RENDER_CHARTS "Enable support for rendering charts")
 OPTION(FEATURE_RENDER_VIDEO "Enable support for rendering to video")
 OPTION(FEATURE_CLI_OPTIONS "Enable support CLI options")
 
@@ -19,6 +20,10 @@ add_executable(boids
     src/video.cpp
     src/main.cpp
 )
+
+if (FEATURE_RENDER_CHARTS)
+    add_definitions(-DFEATURE_RENDER_CHARTS)
+endif() # FEATURE_RENDER_CHARTS
 
 if( ${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
 

@@ -93,10 +93,29 @@ struct Config
     size_t REALTIME_EVERY_NGENS = 0;
     Numeric MAX_ERROR = 0;
 
+#ifdef FEATURE_RENDER_CHARTS
+    bool RENDER_CHARTS = false;
+#endif // FEATURE_RENDER_CHARTS
+
 #ifdef FEATURE_RENDER_VIDEO
     bool SAVE_FRAMES = false;
     Numeric VIDEO_SCALE = 0.0;
 #endif // FEATURE_RENDER_VIDEO
+
+
+    Numeric TARGET_X = 720;
+    Numeric TARGET_Y = 720;
 };
 
-const Config &getConfig();
+Config &getConfig();
+
+struct PopulationStats
+{
+    Numeric minError;
+    Numeric avgError;
+    Numeric maxError;
+
+    Numeric errThreshold;
+
+    size_t survivors;
+};

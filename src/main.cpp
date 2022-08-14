@@ -15,7 +15,7 @@
 
 Config config;
 
-const Config &getConfig()
+Config &getConfig()
 {
     return config;
 }
@@ -109,6 +109,8 @@ Colour RandomColour()
 struct Population
 {
     std::vector<Agent::SP> agents;
+
+    PopulationStats stats;
 } population;
 
 void InitialCondition(Agent::SP a)
@@ -145,34 +147,49 @@ int InitPopulation()
     return 0;
 }
 
-size_t NUM_SURVIVORS = 0;
-
 int NextGeneration(size_t generation)
 {
     std::vector<Agent::SP> survivors;
     // remove dead
     Numeric minError = INFINITY;
     Numeric maxError = 0;
+    Numeric sumError = 0;
     for (auto e : population.agents)
     {
         const auto error = ErrorFunction(e);
         minError = std::min(error, minError);
         maxError = std::max(error, maxError);
-        if (error < config.MAX_ERROR)
+        sumError += error;
+        // if (error < config.MAX_ERROR)
+        // {
+        //     survivors.push_back(e);
+        // }
+    }
+
+    population.stats.minError = minError;
+    population.stats.avgError = sumError / population.agents.size();
+    population.stats.maxError = maxError;
+    population.stats.errThreshold = ((maxError - minError) * 0.005) + minError;
+    for (auto e : population.agents)
+    {
+        const auto error = ErrorFunction(e);
+        if (error < population.stats.errThreshold)
         {
             survivors.push_back(e);
         }
     }
+    population.stats.survivors = survivors.size();
 
-    std::cout
-        << /*"generation" <<*/ generation << ","
-        << /*" min error = " <<*/ minError << ","
-        << /*" max error = " <<*/ maxError << ","
-        << /*" survivors = " <<*/ survivors.size()
-        << std::endl;
+    // std::cout
+    //     << /*"generation" <<*/ generation << ","
+    //     << /*" min error = " <<*/ minError << ","
+    //     << /*" max error = " <<*/ maxError << ","
+    //     << /*" survivors = " <<*/ survivors.size() << ","
+    //     << /*" error pct = " <<*/ errThreshold
+    //     << std::endl;
 
-    NUM_SURVIVORS = survivors.size();
-    if (NUM_SURVIVORS == 0)
+    population.stats.survivors = survivors.size();
+    if (population.stats.survivors == 0)
     {
         // re-popluate
         // std::cout << "Everyone's dead, Dave. Re-populating in generation " << (generation + 1) << std::endl;
@@ -199,25 +216,27 @@ int NextGeneration(size_t generation)
     {
         auto a = std::static_pointer_cast<NeuralAgent>(e);
         auto &b = a->brain();
-        auto &d = a->weight_delta();
+        // auto &d = a->weight_delta();
         for (size_t j = 0; j < b.size(); ++j)
         {
+            // const auto p = d[j] * randf() * config.MUTATION;
+            const auto p = bipolarrandf() * config.MUTATION;
             if (config.BOUNDED_WEIGHTS)
             {
                 std::get<1>(b[j]) = std::max(
                     -config.MAX_WEIGHT,
                     std::min(
                         config.MAX_WEIGHT,
-                        std::get<1>(b[j]) + (d[j] * randf() * config.MUTATION)));
+                        std::get<1>(b[j]) + p));
             }
             else
             {
-                std::get<1>(b[j]) += (d[j] * randf() * config.MUTATION);
+                std::get<1>(b[j]) += p;
             }
-            if (randf() < config.MUTATION)
-            {
-                d[j] *= -1; // swap mutation direction
-            }
+            // if (randf() < config.MUTATION)
+            // {
+            //     d[j] *= -1; // swap mutation direction
+            // }
         }
     }
 
@@ -383,6 +402,13 @@ int ParseArgs(int argc, char *argv[])
         .action(AsInt)
         .help("Rendering: Render all iterations generation interval");
 
+#ifdef FEATURE_RENDER_CHARTS
+    program.add_argument("-c", "--render-charts")
+        .default_value(false)
+        .implicit_value(true)
+        .help("Rendering: Display stats charts");
+#endif // FEATURE_RENDER_CHARTS
+
 #ifdef FEATURE_RENDER_VIDEO
     program.add_argument("-v", "--render-save-video")
         .default_value(false)
@@ -424,6 +450,9 @@ int ParseArgs(int argc, char *argv[])
     config.MAX_ERROR = program.get<float>("-e");
     config.ZOOM = program.get<float>("-z");
     config.REALTIME_EVERY_NGENS = program.get<int>("-u");
+#ifdef FEATURE_RENDER_CHARTS
+    config.RENDER_CHARTS = program.get<bool>("-c");
+#endif // FEATURE_RENDER_CHARTS
 #ifdef FEATURE_RENDER_VIDEO
     config.SAVE_FRAMES = program.get<bool>("-v");
     config.VIDEO_SCALE = program.get<float>("-d");
@@ -599,7 +628,7 @@ int main(int argc, char *argv[])
     tp t_start = now();
     tp t_iter = t_start;
 
-    std::cout << "generation,minError,maxError,survivors" << std::endl;
+    std::cout << "generation,minError,maxError,survivors,errorThreshold" << std::endl;
 
     long f = 0;
     double t = 0;
@@ -618,7 +647,7 @@ int main(int argc, char *argv[])
                 return cleanup(1);
             }
 
-            if (Render(population.agents, g, i, f, t, NUM_SURVIVORS) != 0)
+            if (Render(population.agents, g, i, f, t, population.stats) != 0)
             {
                 std::cerr << "error rendering: " << SDL_GetError() << std::endl;
                 return cleanup(1);
@@ -628,8 +657,7 @@ int main(int argc, char *argv[])
             emscripten_sleep(1);
 #else
             // slow down for real-time animation 1/REALTIME_EVERY_NGENS generations,
-            // but not the first
-            if (g != 0 && g % config.REALTIME_EVERY_NGENS == 0)
+            if (config.REALTIME_EVERY_NGENS != 0 && (g % config.REALTIME_EVERY_NGENS == 0))
             {
                 const auto t_render = now();
                 const auto dt_render = dt(t_iter, t_render);
