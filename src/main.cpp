@@ -160,16 +160,12 @@ int NextGeneration(size_t generation)
         minError = std::min(error, minError);
         maxError = std::max(error, maxError);
         sumError += error;
-        // if (error < config.MAX_ERROR)
-        // {
-        //     survivors.push_back(e);
-        // }
     }
 
     population.stats.minError = minError;
     population.stats.avgError = sumError / population.agents.size();
     population.stats.maxError = maxError;
-    population.stats.errThreshold = ((maxError - minError) * 0.005) + minError;
+    population.stats.errThreshold = ((maxError - minError) * 0.008) + minError;
     for (auto e : population.agents)
     {
         const auto error = ErrorFunction(e);
@@ -388,10 +384,6 @@ int ParseArgs(int argc, char *argv[])
         .default_value(400L)
         .action(AsLong)
         .help("Simulation: Iterations per generation");
-    program.add_argument("-e", "--max-error")
-        .default_value(1.0f)
-        .action(AsFloat)
-        .help("Simulation: Maximum error allowed for survival");
 
     program.add_argument("-z", "--render-zoom-factor")
         .default_value(1.0f)
@@ -447,7 +439,6 @@ int ParseArgs(int argc, char *argv[])
     config.SCREEN_HEIGHT = program.get<int>("-h");
     config.MAX_GENS = program.get<long>("-g");
     config.GEN_ITERS = program.get<long>("-i");
-    config.MAX_ERROR = program.get<float>("-e");
     config.ZOOM = program.get<float>("-z");
     config.REALTIME_EVERY_NGENS = program.get<int>("-u");
 #ifdef FEATURE_RENDER_CHARTS
@@ -551,7 +542,6 @@ int ParseArgs(int argc, char *argv[])
         << " SCREEN_HEIGHT=" << config.SCREEN_HEIGHT << std::endl
         << " MAX_GENS=" << config.MAX_GENS << std::endl
         << " GEN_ITERS=" << config.GEN_ITERS << std::endl
-        << " MAX_ERROR=" << config.MAX_ERROR << std::endl
         << " ZOOM=" << config.ZOOM << std::endl
         << " REALTIME_EVERY_NGENS=" << config.REALTIME_EVERY_NGENS << std::endl
 #ifdef FEATURE_RENDER_VIDEO
